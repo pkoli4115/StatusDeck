@@ -1,0 +1,33 @@
+modules:
+  jira:globalPage:
+    - key: statusdeck-global-page
+      resource: main
+      resolver:
+        function: resolver
+      title: StatusDeck
+
+  function:
+    - key: resolver
+      handler: index.handler
+
+resources:
+  - key: main
+    path: static/hello-world/build
+
+permissions:
+  scopes:
+    - read:jira-user
+    - read:jira-work
+    - read:project:jira
+    - read:board-scope:jira-software
+    - read:sprint:jira-software
+    - read:issue-details:jira
+    - read:jql:jira
+    - read:user:jira
+
+app:
+  runtime:
+    name: nodejs24.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/c133d849-f4f9-40fc-9dc8-5f25705a8b9d
