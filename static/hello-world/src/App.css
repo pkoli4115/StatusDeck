@@ -854,3 +854,363 @@ tbody tr:hover {
   stroke-dasharray: 2 2;
   pointer-events: none;
 }
+
+
+/* Executive presentation layout */
+.page-brand-strip {
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 2px 2px 0;
+}
+
+.page-brand-strip .eyebrow {
+  margin-bottom: 6px;
+}
+
+.page-brand-strip .subtitle {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.report-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, 290px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.report-main {
+  min-width: 0;
+}
+
+.section-selector {
+  position: sticky;
+  top: 18px;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  border: 1px solid #dcdfe4;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(9, 30, 66, 0.08);
+  padding: 18px;
+}
+
+.section-selector-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f1f2f4;
+}
+
+.section-selector-header h2 {
+  margin: 4px 0 6px;
+  font-size: 20px;
+}
+
+.section-selector-header p {
+  margin: 0;
+  color: #626f86;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.selection-count {
+  flex: 0 0 auto;
+  height: fit-content;
+  border-radius: 999px;
+  background: #e9f2ff;
+  color: #0c66e4;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.section-selector-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.section-selector-actions button {
+  border: 1px solid #b7b9be;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #172b4d;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.section-selector-actions button:hover {
+  border-color: #0c66e4;
+  background: #e9f2ff;
+  color: #0c66e4;
+}
+
+.section-selector-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-selector-item {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 10px;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.section-selector-item:hover {
+  border-color: #85b8ff;
+  background: #f7f8f9;
+  transform: translateX(2px);
+}
+
+.section-selector-item.selected {
+  border-color: #85b8ff;
+  background: #e9f2ff;
+}
+
+.section-selector-item input {
+  margin: 2px 0 0;
+  width: 16px;
+  height: 16px;
+  accent-color: #0c66e4;
+}
+
+.section-selector-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.section-selector-copy strong {
+  color: #172b4d;
+  font-size: 13px;
+}
+
+.section-selector-copy small {
+  color: #626f86;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.report-section-hidden {
+  display: none !important;
+}
+
+/* Slide-like metric cards */
+.executive-metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.metric-card {
+  position: relative;
+  overflow: hidden;
+  border-top: 5px solid #579dff;
+  min-height: 132px;
+  padding: 20px;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.metric-card-neutral {
+  border-top-color: #579dff;
+}
+
+.metric-card-positive {
+  border-top: 5px solid #22a06b;
+  border-left: 1px solid #dcdfe4;
+}
+
+.metric-card-negative {
+  border-top: 5px solid #c9372c;
+  border-left: 1px solid #dcdfe4;
+}
+
+.metric-card-warning {
+  border-top: 5px solid #e2b203;
+  border-left: 1px solid #dcdfe4;
+}
+
+.metric-card-clickable:hover,
+.metric-card-clickable:focus-visible {
+  border-color: #0c66e4;
+  box-shadow:
+    0 8px 18px rgba(9, 30, 66, 0.14),
+    0 0 0 2px rgba(12, 102, 228, 0.10);
+  transform: translateY(-3px);
+}
+
+.metric-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  margin: 10px 0 4px;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.metric-helper {
+  margin-top: 7px;
+  font-size: 11px;
+}
+
+.executive-section-card {
+  border-top-width: 5px;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.executive-section-card:hover {
+  box-shadow: 0 7px 18px rgba(9, 30, 66, 0.10);
+  transform: translateY(-2px);
+}
+
+.effort-section {
+  border-top-color: #6554c0;
+}
+
+.history-section {
+  border-top-color: #0c66e4;
+}
+
+.burndown-section {
+  border-top-color: #e34935;
+}
+
+.sprint-report-section {
+  border-top-color: #e2b203;
+}
+
+.velocity-section {
+  border-top-color: #22a06b;
+}
+
+/* Statuses become self-contained executive cards instead of text rows */
+.status-type-grid .content-card {
+  margin-bottom: 0;
+}
+
+.status-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.status-row {
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #dcdfe4;
+  border-top: 5px solid #579dff;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 14px;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+}
+
+.status-row strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.status-row:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 7px 16px rgba(9, 30, 66, 0.12),
+    0 0 0 2px rgba(12, 102, 228, 0.08);
+}
+
+.semantic-card-positive {
+  border-top-color: #22a06b;
+}
+
+.semantic-card-negative {
+  border-top-color: #c9372c;
+}
+
+.semantic-card-warning {
+  border-top-color: #e2b203;
+}
+
+.semantic-card-neutral {
+  border-top-color: #579dff;
+}
+
+.sprint-report-summary .metric-card {
+  min-height: 122px;
+}
+
+/* Detailed sections are intentionally quieter when selected */
+.change-log-section,
+.team-workload-section,
+.work-items-section {
+  border-top: 4px solid #b7b9be;
+}
+
+.table-wrapper {
+  border: 1px solid #f1f2f4;
+  border-radius: 8px;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+@media (max-width: 1180px) {
+  .report-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .section-selector {
+    position: static;
+    max-height: none;
+  }
+
+  .section-selector-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .section-selector-list {
+    grid-template-columns: 1fr;
+  }
+
+  .section-selector-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-value {
+    font-size: 30px;
+  }
+}

@@ -102,6 +102,175 @@ async function openSprintBoard(projectKey, boardId) {
   );
 }
 
+
+const REPORT_SECTIONS = [
+  {
+    id: 'overview',
+    label: 'Executive overview',
+    description: 'Headline sprint health and delivery metrics',
+    defaultVisible: true,
+  },
+  {
+    id: 'effort',
+    label: 'Effort & variance',
+    description: 'Original estimate, time spent and forecast',
+    defaultVisible: true,
+  },
+  {
+    id: 'scopeHistory',
+    label: 'Sprint scope history',
+    description: 'Commitment, scope movement and estimate change',
+    defaultVisible: false,
+  },
+  {
+    id: 'burndown',
+    label: 'Burndown',
+    description: 'Story-point or remaining-effort trend',
+    defaultVisible: true,
+  },
+  {
+    id: 'changeLog',
+    label: 'Change log',
+    description: 'Detailed scope, estimate and status changes',
+    defaultVisible: false,
+  },
+  {
+    id: 'statusTypes',
+    label: 'Status & work types',
+    description: 'Current distribution by status and issue type',
+    defaultVisible: false,
+  },
+  {
+    id: 'sprintReport',
+    label: 'Sprint report',
+    description: 'Completed and incomplete delivery summary',
+    defaultVisible: true,
+  },
+  {
+    id: 'velocity',
+    label: 'Velocity',
+    description: 'Recent closed-sprint commitment and completion',
+    defaultVisible: true,
+  },
+  {
+    id: 'teamWorkload',
+    label: 'Team workload',
+    description: 'Assignee-level load, effort and overdue work',
+    defaultVisible: false,
+  },
+  {
+    id: 'workItems',
+    label: 'Sprint work items',
+    description: 'Detailed issue-level report',
+    defaultVisible: false,
+  },
+];
+
+const DEFAULT_VISIBLE_SECTIONS = REPORT_SECTIONS.reduce(
+  (selection, section) => ({
+    ...selection,
+    [section.id]: section.defaultVisible,
+  }),
+  {}
+);
+
+function getSemanticTone(value) {
+  const text = String(value ?? '').toLowerCase();
+
+  if (
+    text.includes('done') ||
+    text.includes('complete') ||
+    text.includes('closed') ||
+    text.includes('resolved')
+  ) {
+    return 'positive';
+  }
+
+  if (
+    text.includes('block') ||
+    text.includes('defect') ||
+    text.includes('bug') ||
+    text.includes('overdue') ||
+    text.includes('remove')
+  ) {
+    return 'negative';
+  }
+
+  if (
+    text.includes('progress') ||
+    text.includes('review') ||
+    text.includes('open') ||
+    text.includes('remaining') ||
+    text.includes('risk') ||
+    text.includes('task')
+  ) {
+    return 'warning';
+  }
+
+  return 'neutral';
+}
+
+function SectionSelector({
+  visibleSections,
+  onToggle,
+  onExecutiveView,
+  onSelectAll,
+  visibleCount,
+}) {
+  return (
+    <aside className="section-selector" aria-label="Report sections">
+      <div className="section-selector-header">
+        <div>
+          <p className="eyebrow">Presentation view</p>
+          <h2>Report sections</h2>
+          <p>
+            Show only what your audience needs. The full report is still
+            generated in the background.
+          </p>
+        </div>
+
+        <span className="selection-count">
+          {visibleCount} selected
+        </span>
+      </div>
+
+      <div className="section-selector-actions">
+        <button type="button" onClick={onExecutiveView}>
+          Executive view
+        </button>
+        <button type="button" onClick={onSelectAll}>
+          Select all
+        </button>
+      </div>
+
+      <div className="section-selector-list">
+        {REPORT_SECTIONS.map((section) => (
+          <label
+            className={[
+              'section-selector-item',
+              visibleSections[section.id] ? 'selected' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            key={section.id}
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(visibleSections[section.id])}
+              onChange={() => onToggle(section.id)}
+            />
+
+            <span className="section-selector-copy">
+              <strong>{section.label}</strong>
+              <small>{section.description}</small>
+            </span>
+          </label>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
 function MetricCard({
   label,
   value,
@@ -725,6 +894,10 @@ function App() {
 
   const [error, setError] = useState('');
 
+  const [visibleSections, setVisibleSections] = useState(
+    DEFAULT_VISIBLE_SECTIONS
+  );
+
   useEffect(() => {
     async function initialise() {
       try {
@@ -1053,6 +1226,44 @@ function App() {
       .map((issue) => issue.key);
   }
 
+
+  const visibleSectionCount = REPORT_SECTIONS.filter(
+    (section) => visibleSections[section.id]
+  ).length;
+
+  function toggleSection(sectionId) {
+    setVisibleSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId],
+    }));
+  }
+
+  function showExecutiveView() {
+    setVisibleSections(DEFAULT_VISIBLE_SECTIONS);
+  }
+
+  function showAllSections() {
+    setVisibleSections(
+      REPORT_SECTIONS.reduce(
+        (selection, section) => ({
+          ...selection,
+          [section.id]: true,
+        }),
+        {}
+      )
+    );
+  }
+
+  function sectionClass(sectionId, baseClass) {
+    return [
+      baseClass,
+      'report-section',
+      visibleSections[sectionId] ? '' : 'report-section-hidden',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
   if (loading) {
     return (
       <main className="page-shell">
@@ -1065,25 +1276,20 @@ function App() {
 
   return (
     <main className="page-shell">
-      <header className="page-header">
+      <header className="page-header page-brand-strip">
         <div className="brand-block">
-          <h1>StatusDeck</h1>
+          <p className="eyebrow">Executive sprint reporting</p>
 
           <div className="brand-meta-row">
             <p className="subtitle">
-              Management-ready Jira reporting without JQL or
-              manual filters.
+              Management-ready Jira reporting without JQL or manual filters.
             </p>
 
-            <span className="brand-byline">
-              by QTI Labs
-            </span>
+            <span className="brand-byline">by QTI Labs</span>
           </div>
         </div>
 
-        <span className="environment-badge">
-          Development
-        </span>
+        <span className="environment-badge">Development</span>
       </header>
 
       <section className="configuration-card">
@@ -1220,6 +1426,16 @@ function App() {
 
       {report ? (
         <>
+          <div className="report-layout">
+            <SectionSelector
+              visibleSections={visibleSections}
+              onToggle={toggleSection}
+              onExecutiveView={showExecutiveView}
+              onSelectAll={showAllSections}
+              visibleCount={visibleSectionCount}
+            />
+
+            <div className="report-main">
           <section className="report-header-card">
             <div>
               <p className="eyebrow">
@@ -1263,9 +1479,10 @@ function App() {
             </div>
           </section>
 
-          <section className="metric-grid">
+          <section className={sectionClass('overview', 'metric-grid executive-metric-grid')}>
             <MetricCard
               label="Current scope items"
+              tone="neutral"
               value={report.metrics.total}
               helper={
                 report.metrics.includedSubtasks
@@ -1279,6 +1496,7 @@ function App() {
 
             <MetricCard
               label="Completed"
+              tone="positive"
               value={report.metrics.completed}
               helper={`${report.metrics.completionPercentage}% complete`}
               onClick={() =>
@@ -1288,6 +1506,7 @@ function App() {
 
             <MetricCard
               label="Open"
+              tone="warning"
               value={report.metrics.open}
               onClick={() =>
                 openJiraIssues(issueGroups.open)
@@ -1296,6 +1515,7 @@ function App() {
 
             <MetricCard
               label="Defects"
+              tone="negative"
               value={report.metrics.defects}
               onClick={() =>
                 openJiraIssues(issueGroups.defects)
@@ -1304,6 +1524,7 @@ function App() {
 
             <MetricCard
               label="Overdue open items"
+              tone="negative"
               value={report.metrics.overdue}
               onClick={() =>
                 openJiraIssues(issueGroups.overdue)
@@ -1314,6 +1535,7 @@ function App() {
               <>
                 <MetricCard
                   label="Current scope story points"
+              tone="neutral"
                   value={
                     report.metrics.committedStoryPoints
                   }
@@ -1325,6 +1547,7 @@ function App() {
 
                 <MetricCard
                   label="Completed story points"
+              tone="positive"
                   value={
                     report.metrics.completedStoryPoints
                   }
@@ -1338,6 +1561,7 @@ function App() {
 
                 <MetricCard
                   label="Remaining story points"
+              tone="warning"
                   value={
                     report.metrics.remainingStoryPoints
                   }
@@ -1349,7 +1573,7 @@ function App() {
             ) : null}
           </section>
 {effort ? (
-            <section className="content-card effort-section">
+            <section className={sectionClass('effort', 'content-card effort-section executive-section-card')}>
               <div className="section-heading">
                 <div>
                   <h3>
@@ -1518,7 +1742,7 @@ function App() {
           ) : null}
 
           {history ? (
-            <section className="content-card history-section">
+            <section className={sectionClass('scopeHistory', 'content-card history-section executive-section-card')}>
               <div className="section-heading">
                 <div>
                   <h3>Sprint scope history</h3>
@@ -1802,7 +2026,7 @@ function App() {
           ) : null}
 
           {history?.available ? (
-            <section className="content-card">
+            <section className={sectionClass('burndown', 'content-card burndown-section executive-section-card')}>
               <div className="section-heading burndown-heading">
                 <div>
                   <h3>Burndown</h3>
@@ -1902,7 +2126,7 @@ function App() {
           ) : null}
 
           {history?.available ? (
-            <section className="content-card">
+            <section className={sectionClass('changeLog', 'content-card change-log-section')}>
               <div className="section-heading">
                 <div>
                   <h3>Scope, estimate and effort changes</h3>
@@ -1919,7 +2143,7 @@ function App() {
             </section>
           ) : null}
 
-          <section className="two-column-grid">
+          <section className={sectionClass('statusTypes', 'two-column-grid status-type-grid')}>
             <article className="content-card">
               <h3>Status distribution</h3>
 
@@ -1937,7 +2161,7 @@ function App() {
                   return (
                     <button
                       type="button"
-                      className="status-row status-row-button"
+                      className={`status-row status-row-button semantic-card-${getSemanticTone(status)}`}
                       key={status}
                       onClick={() =>
                         openJiraIssues(statusKeys)
@@ -1968,7 +2192,7 @@ function App() {
                   return (
                     <button
                       type="button"
-                      className="status-row status-row-button"
+                      className={`status-row status-row-button semantic-card-${getSemanticTone(type)}`}
                       key={type}
                       onClick={() =>
                         openJiraIssues(typeKeys)
@@ -1983,7 +2207,7 @@ function App() {
             </article>
           </section>
 
-          <section className="content-card">
+          <section className={sectionClass('sprintReport', 'content-card sprint-report-section executive-section-card')}>
             <div className="section-heading">
               <div>
                 <h3>Sprint report</h3>
@@ -2061,7 +2285,7 @@ function App() {
           </section>
 
           {velocityReport ? (
-            <section className="content-card">
+            <section className={sectionClass('velocity', 'content-card velocity-section executive-section-card')}>
               <div className="section-heading">
                 <div>
                   <h3>Velocity</h3>
@@ -2165,7 +2389,7 @@ function App() {
             </section>
           ) : null}
 
-          <section className="content-card">
+          <section className={sectionClass('teamWorkload', 'content-card team-workload-section')}>
             <div className="section-heading">
               <div>
                 <h3>Team workload</h3>
@@ -2351,7 +2575,7 @@ function App() {
             </div>
           </section>
 
-          <section className="content-card">
+          <section className={sectionClass('workItems', 'content-card work-items-section')}>
             <div className="section-heading">
               <div>
                 <h3>Sprint work items</h3>
@@ -2449,6 +2673,8 @@ function App() {
               </table>
             </div>
           </section>
+            </div>
+          </div>
         </>
       ) : (
         <section className="empty-state">
