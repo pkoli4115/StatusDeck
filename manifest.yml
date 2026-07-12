@@ -24,6 +24,7 @@ permissions:
     - read:issue-details:jira
     - read:jql:jira
     - read:user:jira
+    - storage:app
 
 app:
   runtime:

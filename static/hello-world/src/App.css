@@ -2494,3 +2494,515 @@ body {
 .readiness-gauge strong {
   letter-spacing: -0.03em;
 }
+
+
+/* =========================================================
+   Optional filters, usage controls, exports and presentation
+   ========================================================= */
+
+.report-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.secondary-button {
+  min-height: 39px;
+  border: 1px solid #b7b9be;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #172b4d;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: #0c66e4;
+  background: #e9f2ff;
+  color: #0c66e4;
+}
+
+.secondary-button:disabled {
+  background: #f1f2f4;
+  color: #97a0af;
+  cursor: not-allowed;
+}
+
+.usage-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 15px;
+  margin: -8px 0 16px;
+  border: 1px solid rgba(9, 30, 66, 0.08);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 9px 12px;
+  color: #626f86;
+  font-size: 10px;
+  box-shadow: 0 4px 12px rgba(9, 30, 66, 0.04);
+}
+
+.usage-strip .cache-hit {
+  color: #1f845a;
+  font-weight: 700;
+}
+
+.optional-filters-panel {
+  margin: 0 0 18px;
+  border: 1px solid rgba(9, 30, 66, 0.11);
+  border-radius: 15px;
+  background: #ffffff;
+  padding: 16px 18px;
+  box-shadow: 0 8px 22px rgba(9, 30, 66, 0.06);
+}
+
+.optional-filters-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.optional-filters-heading h3 {
+  margin: 3px 0 4px;
+  color: var(--sd-navy);
+}
+
+.optional-filters-heading p:not(.eyebrow) {
+  margin: 0;
+  color: #626f86;
+  font-size: 11px;
+}
+
+.optional-filters-heading > button {
+  border: 0;
+  background: transparent;
+  color: #0c66e4;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.optional-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.optional-filter-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.optional-filter-grid label > span {
+  color: #44546f;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.optional-filter-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 13px;
+}
+
+.optional-filter-toggles label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #44546f;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.active-filter-summary {
+  margin-top: 13px;
+  border-radius: 9px;
+  background: #f3f6fa;
+  padding: 9px 11px;
+  color: #626f86;
+  font-size: 11px;
+}
+
+.presentation-toolbar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 1000;
+  width: min(1180px, calc(100vw - 30px));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 14px;
+  background: rgba(15, 39, 71, 0.96);
+  padding: 10px 14px;
+  color: #ffffff;
+  box-shadow: 0 16px 40px rgba(9, 30, 66, 0.28);
+  backdrop-filter: blur(12px);
+}
+
+.presentation-toolbar > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.presentation-toolbar span {
+  color: #ddebff;
+  font-size: 10px;
+}
+
+.presentation-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.presentation-toolbar button {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+  padding: 8px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.presentation-toolbar .presentation-exit-button {
+  background: #ffffff;
+  color: #0f2747;
+}
+
+.page-shell.presentation-mode {
+  padding-top: 82px;
+  background: #eef2f7;
+}
+
+.presentation-mode > .configuration-card,
+.presentation-mode > .usage-strip,
+.presentation-mode > .optional-filters-panel,
+.presentation-mode > .error-banner,
+.presentation-mode .section-selector {
+  display: none !important;
+}
+
+.presentation-mode .report-layout,
+.presentation-mode .report-layout.report-layout-collapsed {
+  display: block;
+}
+
+.presentation-mode .report-main {
+  width: min(1440px, 100%);
+  margin: 0 auto;
+}
+
+.presentation-mode .report-header-card,
+.presentation-mode .sprint-progress-strip,
+.presentation-mode .dashboard-card,
+.presentation-mode .content-card {
+  break-inside: avoid;
+}
+
+@media (max-width: 1000px) {
+  .optional-filter-grid {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+
+  .report-action-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 620px) {
+  .optional-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .presentation-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .presentation-toolbar-actions {
+    width: 100%;
+  }
+
+  .presentation-toolbar button {
+    flex: 1;
+  }
+
+  .page-shell.presentation-mode {
+    padding-top: 150px;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+
+  .presentation-toolbar,
+  .configuration-card,
+  .usage-strip,
+  .optional-filters-panel,
+  .section-selector,
+  .environment-badge {
+    display: none !important;
+  }
+
+  .page-shell,
+  .page-shell.presentation-mode {
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .report-layout,
+  .report-layout.report-layout-collapsed {
+    display: block !important;
+  }
+
+  .report-main {
+    width: 100% !important;
+  }
+
+  .report-header-card,
+  .sprint-progress-strip,
+  .executive-dashboard-overview,
+  .dashboard-card,
+  .content-card {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  .report-section-hidden {
+    display: none !important;
+  }
+
+  button {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+}
+
+
+/* Professional export controls */
+.export-quality-note {
+  color: #626f86;
+  font-size: 10px;
+}
+
+@media print {
+  /* Browser printing is no longer used for the PDF export. */
+  .presentation-toolbar {
+    display: none !important;
+  }
+}
+
+
+/* Full export button labels */
+.report-action-buttons .secondary-button {
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   Next sprint outlook
+   ========================================================= */
+
+.next-sprint-outlook-block {
+  margin-top: 12px;
+  border: 1px solid #85b8ff;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e9f2ff, #f7fbff);
+  padding: 12px 14px;
+}
+
+.next-sprint-outlook-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.next-sprint-outlook-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.next-sprint-outlook-heading span {
+  color: #0c66e4;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.next-sprint-outlook-heading strong {
+  color: #0f2747;
+  font-size: 14px;
+}
+
+.next-sprint-load-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 5px 8px;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px rgba(12, 102, 228, 0.16);
+}
+
+.next-sprint-goal {
+  margin: 10px 0;
+  color: #44546f;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.next-sprint-outlook-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.next-sprint-outlook-metrics span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 8px;
+  color: #626f86;
+  font-size: 9px;
+}
+
+.next-sprint-outlook-metrics strong {
+  color: #0f2747;
+  font-size: 16px;
+}
+
+.next-sprint-risk-line,
+.next-sprint-ready-line {
+  margin: 9px 0 0;
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.next-sprint-risk-line {
+  background: #fff7d6;
+  color: #7f5f01;
+}
+
+.next-sprint-ready-line {
+  background: #dcfff1;
+  color: #164b35;
+}
+
+@media (max-width: 760px) {
+  .next-sprint-outlook-heading {
+    flex-direction: column;
+  }
+
+  .next-sprint-outlook-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* =========================================================
+   QTI Labs product identity
+   ========================================================= */
+
+.product-identity {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 14px;
+  padding: 2px 2px 0;
+}
+
+.product-identity-kicker {
+  margin: 0;
+  color: #0c66e4;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.product-identity-description {
+  margin: 5px 0 0;
+  color: #44546f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.product-identity-brand {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #626f86;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.product-identity-brand strong {
+  color: #172b4d;
+}
+
+.product-identity-brand a {
+  color: #0c66e4;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.product-identity-brand a:hover,
+.product-identity-brand a:focus-visible {
+  text-decoration: underline;
+}
+
+.presentation-mode > .product-identity {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .product-identity {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .product-identity-brand {
+    white-space: normal;
+  }
+}
+
+@media print {
+  .product-identity {
+    display: none !important;
+  }
+}
