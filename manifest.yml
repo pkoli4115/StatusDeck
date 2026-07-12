@@ -4,7 +4,7 @@ modules:
       resource: main
       resolver:
         function: resolver
-      title: StatusDeck
+      title: Executive Sprint Reporting
 
   function:
     - key: resolver
@@ -24,6 +24,7 @@ permissions:
     - read:issue-details:jira
     - read:jql:jira
     - read:user:jira
+    - storage:app
 
 app:
   runtime:

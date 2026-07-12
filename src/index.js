@@ -1,10 +1,314 @@
-import Resolver from '@forge/resolver';
+import ForgeResolver from '@forge/resolver';
 import api, { route } from '@forge/api';
+import { kvs } from '@forge/kvs';
 
-const resolver = new Resolver();
+const resolver = new ForgeResolver();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_HISTORY_CANDIDATES = 500;
+const MAX_ISSUES_PER_REPORT = 500;
+const VELOCITY_SPRINT_LIMIT = 7;
+
+const USAGE_LIMITS = {
+  reports: {
+    hourly: 10,
+    daily: 50,
+  },
+  pptx: {
+    hourly: 5,
+    daily: 10,
+  },
+  pdf: {
+    hourly: 10,
+    daily: 20,
+  },
+};
+
+const FEATURE_FLAGS = {
+  reportsEnabled: true,
+  powerPointEnabled: true,
+  pdfEnabled: true,
+  manualRefreshEnabled: true,
+  liveBurndownEnabled: true,
+  changeHistoryEnabled: true,
+  detailedWorkItemsEnabled: true,
+  forceCachedReports: false,
+  maximumIssuesPerReport: MAX_ISSUES_PER_REPORT,
+  velocitySprintLimit: VELOCITY_SPRINT_LIMIT,
+};
+
+const activeOperations = new Set();
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function safeIdentifier(value) {
+  return String(value ?? 'unknown')
+    .replace(/[^a-zA-Z0-9:_-]/g, '_')
+    .slice(0, 180);
+}
+
+function getWindowKeys(now = new Date()) {
+  return {
+    hour: now.toISOString().slice(0, 13),
+    day: now.toISOString().slice(0, 10),
+  };
+}
+
+function getUserIdentity(context) {
+  return safeIdentifier(
+    context?.accountId ??
+    context?.principal?.accountId ??
+    'anonymous'
+  );
+}
+
+function getInstallationIdentity(context) {
+  return safeIdentifier(
+    context?.installContext ??
+    context?.cloudId ??
+    'installation'
+  );
+}
+
+function structuredLog(event, details = {}) {
+  console.log(JSON.stringify({
+    event,
+    timestamp: new Date().toISOString(),
+    ...details,
+  }));
+}
+
+async function requestJiraWithRetry(requestFactory, operationName, maxAttempts = 3) {
+  let attempt = 0;
+
+  while (attempt < maxAttempts) {
+    attempt += 1;
+    const response = await requestFactory();
+
+    if (
+      response.status !== 429 &&
+      response.status !== 502 &&
+      response.status !== 503 &&
+      response.status !== 504
+    ) {
+      return response;
+    }
+
+    if (attempt >= maxAttempts) {
+      return response;
+    }
+
+    const retryAfterHeader = response.headers?.get?.('Retry-After');
+    const retryAfterSeconds = Number(retryAfterHeader);
+    const fallbackMilliseconds = Math.min(
+      8000,
+      1000 * (2 ** (attempt - 1))
+    );
+
+    const delayMilliseconds =
+      Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? retryAfterSeconds * 1000
+        : fallbackMilliseconds;
+
+    structuredLog('jira_retry', {
+      operationName,
+      attempt,
+      status: response.status,
+      delayMilliseconds,
+    });
+
+    await wait(delayMilliseconds);
+  }
+
+  throw new Error(`${operationName} could not be completed.`);
+}
+
+
+async function jiraRequest(routeValue, options = {}, operationName = 'Jira request') {
+  return requestJiraWithRetry(
+    () => api.asUser().requestJira(routeValue, options),
+    operationName
+  );
+}
+
+async function readUsageRecord(context) {
+  const userId = getUserIdentity(context);
+  const key = `usage:${userId}`;
+  const now = new Date();
+  const windows = getWindowKeys(now);
+  const existing = await kvs.get(key);
+
+  const record = existing ?? {
+    userId,
+    hourKey: windows.hour,
+    dayKey: windows.day,
+    reportsHour: 0,
+    reportsDay: 0,
+    pptxHour: 0,
+    pptxDay: 0,
+    pdfHour: 0,
+    pdfDay: 0,
+  };
+
+  if (record.hourKey !== windows.hour) {
+    record.hourKey = windows.hour;
+    record.reportsHour = 0;
+    record.pptxHour = 0;
+    record.pdfHour = 0;
+  }
+
+  if (record.dayKey !== windows.day) {
+    record.dayKey = windows.day;
+    record.reportsDay = 0;
+    record.pptxDay = 0;
+    record.pdfDay = 0;
+  }
+
+  return { key, record };
+}
+
+function buildUsageStatus(record) {
+  return {
+    reports: {
+      hourlyUsed: record.reportsHour ?? 0,
+      hourlyLimit: USAGE_LIMITS.reports.hourly,
+      dailyUsed: record.reportsDay ?? 0,
+      dailyLimit: USAGE_LIMITS.reports.daily,
+    },
+    powerPoints: {
+      hourlyUsed: record.pptxHour ?? 0,
+      hourlyLimit: USAGE_LIMITS.pptx.hourly,
+      dailyUsed: record.pptxDay ?? 0,
+      dailyLimit: USAGE_LIMITS.pptx.daily,
+    },
+    pdfs: {
+      hourlyUsed: record.pdfHour ?? 0,
+      hourlyLimit: USAGE_LIMITS.pdf.hourly,
+      dailyUsed: record.pdfDay ?? 0,
+      dailyLimit: USAGE_LIMITS.pdf.daily,
+    },
+    featureFlags: FEATURE_FLAGS,
+  };
+}
+
+async function consumeUsage(context, operation) {
+  const { key, record } = await readUsageRecord(context);
+
+  const mapping = {
+    report: {
+      hourField: 'reportsHour',
+      dayField: 'reportsDay',
+      limits: USAGE_LIMITS.reports,
+      label: 'report',
+    },
+    pptx: {
+      hourField: 'pptxHour',
+      dayField: 'pptxDay',
+      limits: USAGE_LIMITS.pptx,
+      label: 'PowerPoint',
+    },
+    pdf: {
+      hourField: 'pdfHour',
+      dayField: 'pdfDay',
+      limits: USAGE_LIMITS.pdf,
+      label: 'PDF',
+    },
+  };
+
+  const config = mapping[operation];
+
+  if (!config) {
+    throw new Error('Unsupported usage operation.');
+  }
+
+  if ((record[config.hourField] ?? 0) >= config.limits.hourly) {
+    throw new Error(
+      `${config.label} hourly limit reached (${config.limits.hourly}).`
+    );
+  }
+
+  if ((record[config.dayField] ?? 0) >= config.limits.daily) {
+    throw new Error(
+      `${config.label} daily limit reached (${config.limits.daily}).`
+    );
+  }
+
+  record[config.hourField] = (record[config.hourField] ?? 0) + 1;
+  record[config.dayField] = (record[config.dayField] ?? 0) + 1;
+
+  await kvs.set(key, record);
+
+  return buildUsageStatus(record);
+}
+
+async function withUserOperationLock(context, operation, work) {
+  const userId = getUserIdentity(context);
+  const lockKey = `${userId}:${operation}`;
+
+  if (activeOperations.has(lockKey)) {
+    throw new Error(
+      `Another ${operation} operation is already running for your account.`
+    );
+  }
+
+  activeOperations.add(lockKey);
+
+  try {
+    return await work();
+  } finally {
+    activeOperations.delete(lockKey);
+  }
+}
+
+function getReportCacheKey({
+  userId,
+  sprintId,
+  includeSubtasks,
+}) {
+  return `report-cache:${safeIdentifier(userId)}:${sprintId}:${includeSubtasks ? '1' : '0'}`;
+}
+
+function getVelocityCacheKey({
+  userId,
+  boardId,
+  includeSubtasks,
+}) {
+  return `velocity-cache:${safeIdentifier(userId)}:${boardId}:${includeSubtasks ? '1' : '0'}`;
+}
+
+function getOutlookCacheKey({
+  userId,
+  boardId,
+  currentSprintId,
+  includeSubtasks,
+}) {
+  return `outlook-cache:${safeIdentifier(userId)}:${boardId}:${currentSprintId}:${includeSubtasks ? '1' : '0'}`;
+}
+
+async function getCachedValue(key) {
+  const cached = await kvs.get(key);
+
+  if (!cached?.expiresAt || Date.now() >= cached.expiresAt) {
+    if (cached) {
+      await kvs.delete(key);
+    }
+
+    return null;
+  }
+
+  return cached;
+}
+
+async function setCachedValue(key, value, ttlMilliseconds) {
+  await kvs.set(key, {
+    value,
+    generatedAt: new Date().toISOString(),
+    expiresAt: Date.now() + ttlMilliseconds,
+  });
+}
+
 
 async function readJson(response, operationName) {
   if (!response.ok) {
@@ -14,6 +318,16 @@ async function readJson(response, operationName) {
       status: response.status,
       body,
     });
+
+    if (response.status === 429) {
+      const retryAfter = response.headers?.get?.('Retry-After');
+
+      throw new Error(
+        retryAfter
+          ? `Jira is temporarily rate limiting requests. Retry after ${retryAfter} seconds.`
+          : 'Jira is temporarily rate limiting requests. Please try again shortly.'
+      );
+    }
 
     throw new Error(
       `${operationName} failed with Jira response ${response.status}.`
@@ -367,7 +681,7 @@ function isTimeSpentChange(item) {
 }
 
 async function discoverReportingFields() {
-  const response = await api.asUser().requestJira(
+  const response = await jiraRequest(
     route`/rest/api/3/field`,
     {
       headers: {
@@ -424,7 +738,7 @@ async function discoverReportingFields() {
 
 async function getJiraTimeZone() {
   try {
-    const response = await api.asUser().requestJira(
+    const response = await jiraRequest(
       route`/rest/api/3/myself`,
       {
         headers: {
@@ -450,7 +764,7 @@ async function getJiraTimeZone() {
 }
 
 async function getStatusCategoryMap() {
-  const response = await api.asUser().requestJira(
+  const response = await jiraRequest(
     route`/rest/api/3/status`,
     {
       headers: {
@@ -478,7 +792,7 @@ async function getStatusCategoryMap() {
  * Returns only projects visible to the current Jira user.
  */
 resolver.define('getProjects', async () => {
-  const response = await api.asUser().requestJira(
+  const response = await jiraRequest(
     route`/rest/api/3/project/search?maxResults=100&orderBy=name`,
     {
       headers: {
@@ -514,7 +828,7 @@ resolver.define('getBoards', async ({ payload }) => {
     throw new Error('A project key is required.');
   }
 
-  const response = await api.asUser().requestJira(
+  const response = await jiraRequest(
     route`/rest/agile/1.0/board?projectKeyOrId=${projectKey}&maxResults=50`,
     {
       headers: {
@@ -559,7 +873,7 @@ resolver.define('getSprints', async ({ payload }) => {
   let isLast = false;
 
   while (!isLast) {
-    const response = await api.asUser().requestJira(
+    const response = await jiraRequest(
       route`/rest/agile/1.0/board/${boardId}/sprint?startAt=${startAt}&maxResults=50`,
       {
         headers: {
@@ -686,6 +1000,212 @@ resolver.define('getSprints', async ({ payload }) => {
     });
 });
 
+
+resolver.define('getNextSprintOutlook', async ({ payload, context }) => {
+  const boardId = Number(payload?.boardId);
+  const currentSprintId = Number(payload?.currentSprintId);
+  const includeSubtasks = Boolean(payload?.includeSubtasks);
+
+  if (!Number.isInteger(boardId) || boardId <= 0) {
+    throw new Error('A valid board ID is required.');
+  }
+
+  if (!Number.isInteger(currentSprintId) || currentSprintId <= 0) {
+    throw new Error('A valid current sprint ID is required.');
+  }
+
+  const cacheKey = getOutlookCacheKey({
+    userId: getUserIdentity(context),
+    boardId,
+    currentSprintId,
+    includeSubtasks,
+  });
+
+  const cached = await getCachedValue(cacheKey);
+
+  if (cached) {
+    return {
+      ...cached.value,
+      meta: {
+        cacheHit: true,
+        generatedAt: cached.generatedAt,
+      },
+    };
+  }
+
+  const allSprints = [];
+  let startAt = 0;
+  let isLast = false;
+
+  while (!isLast) {
+    const response = await jiraRequest(
+      route`/rest/agile/1.0/board/${boardId}/sprint?startAt=${startAt}&maxResults=50`,
+      {
+        headers: {
+          Accept: 'application/json',
+        },
+      },
+      'Loading next-sprint outlook sprints'
+    );
+
+    const data = await readJson(
+      response,
+      'Loading next-sprint outlook sprints'
+    );
+
+    const pageValues = data.values ?? [];
+    allSprints.push(...pageValues);
+    isLast = Boolean(data.isLast);
+
+    if (isLast || pageValues.length === 0) {
+      break;
+    }
+
+    startAt += data.maxResults ?? pageValues.length;
+  }
+
+  const currentSprint = allSprints.find(
+    (sprint) => Number(sprint.id) === currentSprintId
+  );
+
+  if (!currentSprint || currentSprint.state === 'future') {
+    const result = {
+      available: false,
+      reason: currentSprint?.state === 'future'
+        ? 'selected-sprint-is-future'
+        : 'current-sprint-not-found',
+    };
+
+    await setCachedValue(cacheKey, result, 5 * 60 * 1000);
+    return result;
+  }
+
+  const futureSprints = allSprints
+    .filter(
+      (sprint) =>
+        sprint.state === 'future' &&
+        Number(sprint.id) !== currentSprintId
+    )
+    .sort((left, right) => {
+      const leftDate = parseDate(left.startDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const rightDate = parseDate(right.startDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+
+      return leftDate - rightDate || Number(left.id) - Number(right.id);
+    });
+
+  const nextSprint = futureSprints[0];
+
+  if (!nextSprint) {
+    const result = {
+      available: false,
+      reason: 'no-future-sprint',
+    };
+
+    await setCachedValue(cacheKey, result, 5 * 60 * 1000);
+    return result;
+  }
+
+  const reportingFields = await discoverReportingFields();
+  const storyPointFieldId = reportingFields.storyPoints?.id ?? null;
+  const sprintFieldId = reportingFields.sprint?.id ?? null;
+
+  const [nextSprintIssues, currentSprintIssues] = await Promise.all([
+    getAllSprintIssues(
+      Number(nextSprint.id),
+      storyPointFieldId,
+      sprintFieldId
+    ),
+    getAllSprintIssues(
+      currentSprintId,
+      storyPointFieldId,
+      sprintFieldId
+    ),
+  ]);
+
+  const nextMetrics = calculateSprintMetrics(
+    nextSprintIssues,
+    storyPointFieldId,
+    includeSubtasks
+  );
+
+  const currentMetrics = calculateSprintMetrics(
+    currentSprintIssues,
+    storyPointFieldId,
+    includeSubtasks
+  );
+
+  const currentIssueIds = new Set(
+    (currentMetrics.reportingIssues ?? []).map((issue) => issue.id)
+  );
+
+  const carryOverIssues = (nextMetrics.reportingIssues ?? []).filter(
+    (issue) => currentIssueIds.has(issue.id)
+  );
+
+  const unassignedItems = (nextMetrics.reportingIssues ?? []).filter(
+    (issue) => issue.assignee === 'Unassigned'
+  ).length;
+
+  const unestimatedItems = (nextMetrics.reportingIssues ?? []).filter(
+    (issue) => Number(issue.storyPoints ?? 0) <= 0
+  ).length;
+
+  const assigneeCount = new Set(
+    (nextMetrics.reportingIssues ?? [])
+      .map((issue) => issue.assignee)
+      .filter((name) => name && name !== 'Unassigned')
+  ).size;
+
+  const result = {
+    available: true,
+    sprint: {
+      id: nextSprint.id,
+      name: nextSprint.name,
+      state: nextSprint.state,
+      goal: nextSprint.goal ?? '',
+      startDate: nextSprint.startDate ?? null,
+      endDate: nextSprint.endDate ?? null,
+    },
+    plannedItems: nextMetrics.total,
+    plannedPoints: nextMetrics.committedStoryPoints,
+    defects: nextMetrics.defects,
+    overdueItems: nextMetrics.overdue,
+    unassignedItems,
+    unestimatedItems,
+    assigneeCount,
+    originalEstimateCoveragePercentage:
+      nextMetrics.effort?.coverage?.originalEstimateCoveragePercentage ?? 0,
+    carryOverItems: carryOverIssues.length,
+    carryOverPoints: roundNumber(
+      carryOverIssues.reduce(
+        (sum, issue) => sum + Number(issue.storyPoints ?? 0),
+        0
+      )
+    ),
+    carryOverKeys: carryOverIssues.map((issue) => issue.key),
+  };
+
+  await setCachedValue(cacheKey, result, 5 * 60 * 1000);
+
+  structuredLog('next_sprint_outlook_generated', {
+    installationId: getInstallationIdentity(context),
+    userId: getUserIdentity(context),
+    boardId,
+    currentSprintId,
+    nextSprintId: nextSprint.id,
+    plannedItems: result.plannedItems,
+    carryOverItems: result.carryOverItems,
+  });
+
+  return {
+    ...result,
+    meta: {
+      cacheHit: false,
+      generatedAt: new Date().toISOString(),
+    },
+  };
+});
+
 async function getAllSprintIssues(
   sprintId,
   storyPointFieldId,
@@ -720,7 +1240,7 @@ async function getAllSprintIssues(
     let response;
 
     if (nextPageToken) {
-      response = await api.asUser().requestJira(
+      response = await jiraRequest(
         route`/rest/agile/1.0/sprint/${sprintId}/issue?maxResults=100&fields=${fields}&nextPageToken=${nextPageToken}`,
         {
           headers: {
@@ -729,7 +1249,7 @@ async function getAllSprintIssues(
         }
       );
     } else {
-      response = await api.asUser().requestJira(
+      response = await jiraRequest(
         route`/rest/agile/1.0/sprint/${sprintId}/issue?maxResults=100&fields=${fields}`,
         {
           headers: {
@@ -745,6 +1265,13 @@ async function getAllSprintIssues(
     );
 
     allIssues.push(...(data.issues ?? []));
+
+    if (allIssues.length > FEATURE_FLAGS.maximumIssuesPerReport) {
+      throw new Error(
+        `This report exceeds the maximum of ${FEATURE_FLAGS.maximumIssuesPerReport} issues. Refine the report scope.`
+      );
+    }
+
     nextPageToken = data.nextPageToken;
   } while (nextPageToken);
 
@@ -814,7 +1341,7 @@ async function searchProjectHistoryCandidates({
       requestBody.nextPageToken = nextPageToken;
     }
 
-    const response = await api.asUser().requestJira(
+    const response = await jiraRequest(
       route`/rest/api/3/search/jql`,
       {
         method: 'POST',
@@ -888,7 +1415,7 @@ async function bulkFetchChangelogs({
       requestBody.nextPageToken = nextPageToken;
     }
 
-    const response = await api.asUser().requestJira(
+    const response = await jiraRequest(
       route`/rest/api/3/changelog/bulkfetch`,
       {
         method: 'POST',
@@ -3007,7 +3534,7 @@ async function getClosedSprints(
     allSprints.length < 100
   ) {
     const response =
-      await api.asUser().requestJira(
+      await jiraRequest(
         route`/rest/agile/1.0/board/${boardId}/sprint?state=closed&startAt=${startAt}&maxResults=50`,
         {
           headers: {
@@ -3054,26 +3581,102 @@ async function getClosedSprints(
     .reverse();
 }
 
+
+resolver.define('getUsageStatus', async ({ context }) => {
+  const { record } = await readUsageRecord(context);
+  return buildUsageStatus(record);
+});
+
+resolver.define('registerExport', async ({ payload, context }) => {
+  const exportType = String(payload?.exportType ?? '');
+
+  if (exportType === 'pptx' && !FEATURE_FLAGS.powerPointEnabled) {
+    throw new Error('PowerPoint generation is temporarily disabled.');
+  }
+
+  if (exportType === 'pdf' && !FEATURE_FLAGS.pdfEnabled) {
+    throw new Error('PDF generation is temporarily disabled.');
+  }
+
+  if (!['pptx', 'pdf'].includes(exportType)) {
+    throw new Error('A valid export type is required.');
+  }
+
+  return withUserOperationLock(
+    context,
+    exportType,
+    async () => {
+      const usage = await consumeUsage(context, exportType);
+
+      structuredLog('export_authorized', {
+        installationId: getInstallationIdentity(context),
+        userId: getUserIdentity(context),
+        exportType,
+      });
+
+      return {
+        allowed: true,
+        usage,
+        featureFlags: FEATURE_FLAGS,
+      };
+    }
+  );
+});
+
 resolver.define(
   'getSprintReport',
-  async ({ payload }) => {
-    const sprintId = Number(
-      payload?.sprintId
-    );
+  async ({ payload, context }) =>
+    withUserOperationLock(
+      context,
+      'report',
+      async () => {
+        if (!FEATURE_FLAGS.reportsEnabled) {
+          throw new Error('Report generation is temporarily disabled.');
+        }
 
-    const includeSubtasks =
-      Boolean(
-        payload?.includeSubtasks
-      );
+        const startedAt = Date.now();
+        const sprintId = Number(payload?.sprintId);
+        const includeSubtasks = Boolean(payload?.includeSubtasks);
 
-    if (
-      !Number.isInteger(sprintId) ||
-      sprintId <= 0
-    ) {
-      throw new Error(
-        'A valid sprint ID is required.'
-      );
-    }
+        if (!Number.isInteger(sprintId) || sprintId <= 0) {
+          throw new Error('A valid sprint ID is required.');
+        }
+
+        const cacheKey = getReportCacheKey({
+          userId: getUserIdentity(context),
+          sprintId,
+          includeSubtasks,
+        });
+
+        const cached = await getCachedValue(cacheKey);
+
+        if (cached) {
+          structuredLog('report_served', {
+            installationId: getInstallationIdentity(context),
+            userId: getUserIdentity(context),
+            sprintId,
+            cacheHit: true,
+            durationMs: Date.now() - startedAt,
+          });
+
+          return {
+            report: cached.value,
+            meta: {
+              cacheHit: true,
+              generatedAt: cached.generatedAt,
+              issueCount: cached.value?.metrics?.total ?? 0,
+              featureFlags: FEATURE_FLAGS,
+            },
+          };
+        }
+
+        if (FEATURE_FLAGS.forceCachedReports) {
+          throw new Error(
+            'Fresh report generation is temporarily disabled. No cached report is available.'
+          );
+        }
+
+        await consumeUsage(context, 'report');
 
     const reportingFields =
       await discoverReportingFields();
@@ -3087,7 +3690,7 @@ resolver.define(
       null;
 
     const sprintResponse =
-      await api.asUser().requestJira(
+      await jiraRequest(
         route`/rest/agile/1.0/sprint/${sprintId}`,
         {
           headers: {
@@ -3138,7 +3741,7 @@ resolver.define(
         includeSubtasks,
       });
 
-    return {
+    const reportResult = {
       sprint: {
         id: sprint.id,
         name: sprint.name,
@@ -3179,12 +3782,43 @@ resolver.define(
 
       history,
     };
-  }
+
+    const cacheTtlMilliseconds =
+      reportResult.sprint.state === 'closed'
+        ? 60 * 60 * 1000
+        : 5 * 60 * 1000;
+
+    await setCachedValue(
+      cacheKey,
+      reportResult,
+      cacheTtlMilliseconds
+    );
+
+    structuredLog('report_generated', {
+      installationId: getInstallationIdentity(context),
+      userId: getUserIdentity(context),
+      sprintId,
+      issueCount: reportResult.metrics.total,
+      cacheHit: false,
+      durationMs: Date.now() - startedAt,
+    });
+
+    return {
+      report: reportResult,
+      meta: {
+        cacheHit: false,
+        generatedAt: new Date().toISOString(),
+        issueCount: reportResult.metrics.total,
+        featureFlags: FEATURE_FLAGS,
+      },
+    };
+      }
+    )
 );
 
 resolver.define(
   'getVelocityReport',
-  async ({ payload }) => {
+  async ({ payload, context }) => {
     const boardId = Number(
       payload?.boardId
     );
@@ -3193,6 +3827,24 @@ resolver.define(
       Boolean(
         payload?.includeSubtasks
       );
+
+    const velocityCacheKey = getVelocityCacheKey({
+      userId: getUserIdentity(context),
+      boardId,
+      includeSubtasks,
+    });
+
+    const cachedVelocity = await getCachedValue(velocityCacheKey);
+
+    if (cachedVelocity) {
+      return {
+        ...cachedVelocity.value,
+        meta: {
+          cacheHit: true,
+          generatedAt: cachedVelocity.generatedAt,
+        },
+      };
+    }
 
     if (
       !Number.isInteger(boardId) ||
@@ -3217,7 +3869,7 @@ resolver.define(
     const closedSprints =
       await getClosedSprints(
         boardId,
-        7
+        FEATURE_FLAGS.velocitySprintLimit
       );
 
     const velocity = [];
@@ -3314,7 +3966,7 @@ resolver.define(
               10
           ) / 10;
 
-    return {
+    const velocityResult = {
       storyPointField:
         reportingFields.storyPoints,
 
@@ -3323,6 +3975,20 @@ resolver.define(
 
       averageCompleted,
       velocity,
+    };
+
+    await setCachedValue(
+      velocityCacheKey,
+      velocityResult,
+      30 * 60 * 1000
+    );
+
+    return {
+      ...velocityResult,
+      meta: {
+        cacheHit: false,
+        generatedAt: new Date().toISOString(),
+      },
     };
   }
 );
