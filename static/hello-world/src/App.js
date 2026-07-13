@@ -5147,6 +5147,11 @@ function HistoryEventsTable({ events }) {
 }
 
 function App() {
+  const [licenseStatus, setLicenseStatus] = useState({
+    loading: true,
+    active: false,
+    state: 'unknown',
+  });
   const [projects, setProjects] = useState([]);
   const [boards, setBoards] = useState([]);
   const [sprints, setSprints] = useState([]);
@@ -5192,6 +5197,44 @@ function App() {
 
 
   useEffect(() => {
+    let mounted = true;
+
+    async function loadLicenseStatus() {
+      try {
+        const result = await invoke('getLicenseStatus');
+
+        if (mounted) {
+          setLicenseStatus({
+            loading: false,
+            active: result?.active === true,
+            state: result?.state ?? 'unknown',
+          });
+        }
+      } catch (caughtError) {
+        console.error('Unable to verify StatusDeck licence', caughtError);
+
+        if (mounted) {
+          setLicenseStatus({
+            loading: false,
+            active: false,
+            state: 'error',
+          });
+        }
+      }
+    }
+
+    loadLicenseStatus();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!licenseStatus.active) {
+      return;
+    }
+
     async function loadUsageStatus() {
       try {
         const result = await invoke('getUsageStatus');
@@ -5202,9 +5245,18 @@ function App() {
     }
 
     loadUsageStatus();
-  }, []);
+  }, [licenseStatus.active]);
 
   useEffect(() => {
+    if (licenseStatus.loading) {
+      return;
+    }
+
+    if (!licenseStatus.active) {
+      setLoading(false);
+      return;
+    }
+
     async function initialise() {
       try {
         setLoading(true);
@@ -5230,6 +5282,10 @@ function App() {
       } catch (caughtError) {
         console.error(caughtError);
 
+        if (markLicenseInactive(caughtError)) {
+          return;
+        }
+
         setError(
           caughtError.message ||
             'Unable to load Jira projects.'
@@ -5240,9 +5296,13 @@ function App() {
     }
 
     initialise();
-  }, []);
+  }, [licenseStatus.loading, licenseStatus.active]);
 
   useEffect(() => {
+    if (!licenseStatus.active) {
+      return;
+    }
+
     if (!projectKey) {
       setBoards([]);
       setBoardId('');
@@ -5282,6 +5342,10 @@ function App() {
       } catch (caughtError) {
         console.error(caughtError);
 
+        if (markLicenseInactive(caughtError)) {
+          return;
+        }
+
         setError(
           caughtError.message ||
             'Unable to load project boards.'
@@ -5290,9 +5354,13 @@ function App() {
     }
 
     loadBoards();
-  }, [projectKey]);
+  }, [projectKey, licenseStatus.active]);
 
   useEffect(() => {
+    if (!licenseStatus.active) {
+      return;
+    }
+
     if (!boardId) {
       setSprints([]);
       setSprintId('');
@@ -5335,6 +5403,10 @@ function App() {
       } catch (caughtError) {
         console.error(caughtError);
 
+        if (markLicenseInactive(caughtError)) {
+          return;
+        }
+
         setError(
           caughtError.message ||
             'Unable to load board sprints.'
@@ -5343,7 +5415,7 @@ function App() {
     }
 
     loadSprints();
-  }, [boardId]);
+  }, [boardId, licenseStatus.active]);
 
   function handleIncludeSubtasksChange(event) {
     setIncludeSubtasks(event.target.checked);
@@ -6122,6 +6194,25 @@ function App() {
   }
 
 
+  function markLicenseInactive(caughtError) {
+    const message = String(caughtError?.message ?? caughtError ?? '');
+
+    if (
+      caughtError?.code === 'LICENSE_REQUIRED' ||
+      message.includes('LICENSE_REQUIRED') ||
+      message.includes('valid StatusDeck subscription or trial')
+    ) {
+      setLicenseStatus({
+        loading: false,
+        active: false,
+        state: 'inactive',
+      });
+      return true;
+    }
+
+    return false;
+  }
+
 
   const visibleSectionCount = REPORT_SECTIONS.filter(
     (section) => visibleSections[section.id]
@@ -6161,6 +6252,66 @@ function App() {
     ]
       .filter(Boolean)
       .join(' ');
+  }
+
+  if (licenseStatus.loading) {
+    return (
+      <main className="page-shell">
+        <div className="loading-panel">
+          Checking StatusDeck licence…
+        </div>
+      </main>
+    );
+  }
+
+  if (!licenseStatus.active) {
+    return (
+      <main className="page-shell licence-page">
+        <section className="licence-card" aria-labelledby="licence-title">
+          <div className="licence-product-mark" aria-hidden="true">SD</div>
+          <p className="eyebrow">StatusDeck licensing</p>
+          <h1 id="licence-title">StatusDeck subscription required</h1>
+          <p className="licence-summary">
+            A valid StatusDeck subscription or Atlassian Marketplace trial is
+            required to generate executive Jira sprint reports.
+          </p>
+          <p className="licence-detail">
+            Subscribe or renew through Atlassian Marketplace, then reopen the
+            app. Jira data is not loaded while the licence is inactive.
+          </p>
+          <div className="licence-actions">
+            <a
+              className="primary-button licence-primary-link"
+              href="https://marketplace.atlassian.com/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open Atlassian Marketplace
+            </a>
+            <a
+              href="https://qtilabs.com/products/statusdeck/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Documentation
+            </a>
+            <a
+              href="https://qtilabs.com/statusdeck/support/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Support
+            </a>
+          </div>
+          {licenseStatus.state === 'error' ? (
+            <p className="licence-error-note">
+              StatusDeck could not verify the licence. Please reopen the app or
+              contact QTI Labs support if the problem continues.
+            </p>
+          ) : null}
+        </section>
+      </main>
+    );
   }
 
   if (loading) {

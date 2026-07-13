@@ -4,7 +4,7 @@ modules:
       resource: main
       resolver:
         function: resolver
-      title: Executive Sprint Reporting
+      title: StatusDeck - Executive Sprint Reporting
 
   function:
     - key: resolver
@@ -27,6 +27,8 @@ permissions:
     - storage:app
 
 app:
+  licensing:
+    enabled: true
   runtime:
     name: nodejs24.x
     memoryMB: 256

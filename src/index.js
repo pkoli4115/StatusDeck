@@ -4,6 +4,108 @@ import { kvs } from '@forge/kvs';
 
 const resolver = new ForgeResolver();
 
+const PUBLIC_RESOLVERS = new Set(['getLicenseStatus']);
+
+function getLicenseState(context) {
+  const override = String(process.env.LICENSE_OVERRIDE ?? '')
+    .trim()
+    .toLowerCase();
+
+  if (override === 'active' || override === 'trial') {
+    return {
+      active: true,
+      state: override,
+      source: 'environment-override',
+    };
+  }
+
+  if (override === 'inactive') {
+    return {
+      active: false,
+      state: 'inactive',
+      source: 'environment-override',
+    };
+  }
+
+  if (context?.license) {
+    const active = context.license.active === true;
+    const rawType = String(
+      context.license.type ??
+      context.license.licenseType ??
+      context.license.entitlementType ??
+      ''
+    ).toLowerCase();
+
+    const state = active
+      ? rawType.includes('trial') || rawType.includes('evaluation')
+        ? 'trial'
+        : 'active'
+      : 'inactive';
+
+    return {
+      active,
+      state,
+      source: 'forge',
+    };
+  }
+
+  /*
+   * Atlassian does not provide a license object for apps that are not yet
+   * listed, free apps, or custom/non-production environments. Allow access in
+   * that pre-listing/development situation so the app can still be tested.
+   * Once the paid production listing is live, Forge supplies context.license.
+   */
+  return {
+    active: true,
+    state: 'unavailable',
+    source: 'prelisting-or-development',
+  };
+}
+
+function createLicenseError() {
+  const error = new Error(
+    'A valid StatusDeck subscription or trial is required.'
+  );
+  error.code = 'LICENSE_REQUIRED';
+  return error;
+}
+
+function requireActiveLicense(context) {
+  const license = getLicenseState(context);
+
+  if (!license.active) {
+    structuredLog('license_required', {
+      installationId: getInstallationIdentity(context),
+      userId: getUserIdentity(context),
+      state: license.state,
+      source: license.source,
+    });
+    throw createLicenseError();
+  }
+
+  return license;
+}
+
+function defineLicensedResolver(name, handler) {
+  return resolver.define(name, async (request) => {
+    if (!PUBLIC_RESOLVERS.has(name)) {
+      requireActiveLicense(request?.context);
+    }
+
+    return handler(request);
+  });
+}
+
+resolver.define('getLicenseStatus', ({ context }) => {
+  const license = getLicenseState(context);
+
+  return {
+    active: license.active,
+    state: license.state,
+    source: license.source,
+  };
+});
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_HISTORY_CANDIDATES = 500;
 const MAX_ISSUES_PER_REPORT = 500;
@@ -791,7 +893,7 @@ async function getStatusCategoryMap() {
 /**
  * Returns only projects visible to the current Jira user.
  */
-resolver.define('getProjects', async () => {
+defineLicensedResolver('getProjects', async () => {
   const response = await jiraRequest(
     route`/rest/api/3/project/search?maxResults=100&orderBy=name`,
     {
@@ -819,7 +921,7 @@ resolver.define('getProjects', async () => {
 /**
  * Finds boards associated with the selected project.
  */
-resolver.define('getBoards', async ({ payload }) => {
+defineLicensedResolver('getBoards', async ({ payload }) => {
   const projectKey = String(
     payload?.projectKey ?? ''
   ).trim();
@@ -861,7 +963,7 @@ resolver.define('getBoards', async ({ payload }) => {
  * - Last Sprint (most recently completed)
  * - Closed Sprint (older completed sprints)
  */
-resolver.define('getSprints', async ({ payload }) => {
+defineLicensedResolver('getSprints', async ({ payload }) => {
   const boardId = Number(payload?.boardId);
 
   if (!Number.isInteger(boardId) || boardId <= 0) {
@@ -1001,7 +1103,7 @@ resolver.define('getSprints', async ({ payload }) => {
 });
 
 
-resolver.define('getNextSprintOutlook', async ({ payload, context }) => {
+defineLicensedResolver('getNextSprintOutlook', async ({ payload, context }) => {
   const boardId = Number(payload?.boardId);
   const currentSprintId = Number(payload?.currentSprintId);
   const includeSubtasks = Boolean(payload?.includeSubtasks);
@@ -3582,12 +3684,12 @@ async function getClosedSprints(
 }
 
 
-resolver.define('getUsageStatus', async ({ context }) => {
+defineLicensedResolver('getUsageStatus', async ({ context }) => {
   const { record } = await readUsageRecord(context);
   return buildUsageStatus(record);
 });
 
-resolver.define('registerExport', async ({ payload, context }) => {
+defineLicensedResolver('registerExport', async ({ payload, context }) => {
   const exportType = String(payload?.exportType ?? '');
 
   if (exportType === 'pptx' && !FEATURE_FLAGS.powerPointEnabled) {
@@ -3623,7 +3725,7 @@ resolver.define('registerExport', async ({ payload, context }) => {
   );
 });
 
-resolver.define(
+defineLicensedResolver(
   'getSprintReport',
   async ({ payload, context }) =>
     withUserOperationLock(
@@ -3816,7 +3918,7 @@ resolver.define(
     )
 );
 
-resolver.define(
+defineLicensedResolver(
   'getVelocityReport',
   async ({ payload, context }) => {
     const boardId = Number(
