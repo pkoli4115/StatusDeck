@@ -1,0 +1,5 @@
+b837d769cd74ea79a5b4b1c69b199ff18faef355132740e77fad945b45a99b59  static/hello-world/src/App.js
+81b8dba483fcce1a329f6f65eaa2b72b86ad241e3303e55b5b808708b382bc8d  static/hello-world/src/App.css
+131aae47e6e4e12f2c43fdd0cd25a131f2d0326e7c538083f8554cb6da29fdaf  scripts/regression-check.mjs
+d129ca6bd60fc4d178fc793a3e35b9bf420db1216e77d146cb721bb2b99bc8a0  manifest.yml
+7ecd9782595548961a6cc5b2f9c82cd10680a5e2287bcf8d235f19651d5232a4  src/index.js

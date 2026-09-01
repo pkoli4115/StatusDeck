@@ -1,0 +1,68 @@
+PASS  global page preserved
+PASS  project page preserved
+PASS  board action preserved
+PASS  backlog action preserved
+PASS  dashboard gadget preserved
+PASS  licensing preserved
+PASS  storage scope preserved
+PASS  Sprint report resolver preserved
+PASS  Velocity resolver preserved
+PASS  Usage resolver preserved
+PASS  License resolver preserved
+PASS  Board config resolver preserved
+PASS  Reporting settings resolver preserved
+PASS  Commentary resolver preserved
+PASS  Scheduler settings resolver preserved
+PASS  No HDP hardcode
+PASS  PowerPoint export preserved
+PASS  PDF export preserved
+PASS  Full export still includes Burndown
+PASS  Project/program report preserved
+PASS  Estimation detection UI preserved
+PASS  Draft/publish commentary preserved
+PASS  Return to Green preserved
+PASS  Local assistant preserved
+PASS  Collaboration copy preserved
+PASS  Native top-level section dragging retired
+PASS  Section dots open deterministic move menu
+PASS  Section menu exposes four directions
+PASS  Top-level section Up/Down changes saved order
+PASS  Fresh top-level section preference resets flaky drag order
+PASS  Overview uses command movement instead of drag hit-testing
+PASS  Only overview logical blocks get card move controls
+PASS  Overview move menu exposes four directions
+PASS  Overview Left/Right swaps same-row peers
+PASS  Overview Up/Down swaps deterministic row/column positions
+PASS  Fresh overview order preference resets broken experimental layout
+PASS  Management commentary defaults first
+PASS  Management commentary remains full width
+PASS  Sprint Health remains full width and owns core KPIs
+PASS  Core KPI labels remain grouped
+PASS  Risk and Scope Health remain half-width peers
+PASS  Work Distribution and Capacity remain half-width peers
+PASS  Velocity and Return to Green remain overview blocks
+PASS  Overview grid respects logical order rather than dense backfill
+PASS  Compact Burndown remains inside Sprint Health
+PASS  Standalone web Burndown is disabled to prevent duplicate charts
+PASS  Burndown removed from report-section selector
+PASS  Burndown export path preserved
+PASS  Compact Burndown web height constrained
+PASS  Detailed Burndown export/chart sizing code preserved
+PASS  Calculation help component preserved
+PASS  Calculation tooltip uses body portal
+PASS  Calculation tooltip opens on hover and keyboard focus
+PASS  Calculation tooltip is viewport-positioned
+PASS  Delivery completion calculation help present
+PASS  Delivery health calculation help present
+PASS  Scope calculation help present
+PASS  Effort calculation help present
+PASS  Coverage calculation help present
+PASS  Velocity calculation help present
+PASS  Move menu CSS present
+PASS  Move handles use click cursor
+PASS  Legacy pointer-drag listener removed
+PASS  Top-level report remains normal single-column flow
+PASS  Legacy masonry span calculation remains removed
+PASS  CSS braces balanced
+
+66 regression checks passed.

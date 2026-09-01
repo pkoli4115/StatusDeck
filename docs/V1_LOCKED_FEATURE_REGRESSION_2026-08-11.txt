@@ -1,0 +1,151 @@
+PASS  global page preserved
+PASS  project page preserved
+PASS  board action preserved
+PASS  backlog action preserved
+PASS  dashboard gadget preserved
+PASS  licensing preserved
+PASS  storage scope preserved
+PASS  Sprint report resolver preserved
+PASS  Velocity resolver preserved
+PASS  Usage resolver preserved
+PASS  License resolver preserved
+PASS  Board config resolver preserved
+PASS  Reporting settings resolver preserved
+PASS  Commentary resolver preserved
+PASS  Scheduler settings resolver preserved
+PASS  No HDP hardcode
+PASS  PowerPoint export preserved
+PASS  PDF export preserved
+PASS  Full export still includes Burndown
+PASS  Project/program report preserved
+PASS  Estimation detection UI preserved
+PASS  Draft/publish commentary preserved
+PASS  Return to Green preserved
+PASS  Local assistant preserved
+PASS  Collaboration copy preserved
+PASS  Native top-level section dragging retired
+PASS  Section dots open deterministic move menu
+PASS  Section menu exposes four directions
+PASS  Top-level section Up/Down changes saved order
+PASS  Fresh top-level section preference resets flaky drag order
+PASS  Overview uses React-state command movement instead of drag hit-testing
+PASS  Overview movement does not inject React-owned DOM children
+PASS  Only overview logical blocks get React move controls
+PASS  Overview move menu reuses React portal menu with four directions
+PASS  Overview Left/Right swaps same-row peers
+PASS  Overview Up/Down swaps deterministic row/column positions
+PASS  Fresh overview order preference resets broken experimental layout
+PASS  Management commentary defaults first
+PASS  Management commentary remains full width
+PASS  Sprint Health remains full width and owns core KPIs
+PASS  Core KPI labels remain grouped
+PASS  Risk and Scope Health remain half-width peers
+PASS  Work Distribution and Capacity remain half-width peers
+PASS  Velocity and Return to Green remain overview blocks
+PASS  Overview grid respects logical order rather than dense backfill
+PASS  Compact live Burndown remains inside Sprint Health
+PASS  Compact Burndown uses event-level live data
+PASS  Detailed web Burndown restored as a separate section
+PASS  Detailed Burndown supports Daily and Live event modes
+PASS  Detailed Burndown supports Story Points and Remaining Effort
+PASS  Detailed Burndown is no longer disabled behind false guard
+PASS  Burndown export path preserved
+PASS  Compact live Burndown height constrained
+PASS  Detailed Burndown web height remains capped
+PASS  Detailed Burndown export/chart sizing code preserved
+PASS  Publish success feedback shown beside commentary actions
+PASS  Publish failure feedback shown beside commentary actions
+PASS  Commentary export receives full editor value
+PASS  PowerPoint export parses full commentary text
+PASS  PDF export preserves commentary continuation
+PASS  Planning checks are preserved in exported commentary
+PASS  Calculation help component preserved
+PASS  Calculation tooltip uses body portal
+PASS  Calculation tooltip opens on hover and keyboard focus
+PASS  Calculation tooltip also opens on pointer hover
+PASS  Calculation help has native browser hover fallback
+PASS  Calculation help has click fallback
+PASS  Metric decoration cannot intercept calculation hover
+PASS  Calculation trigger is explicitly pointer interactive
+PASS  Calculation tooltip is viewport-positioned
+PASS  Delivery completion calculation help present
+PASS  Delivery health calculation help present
+PASS  Scope calculation help present
+PASS  Effort calculation help present
+PASS  Coverage calculation help present
+PASS  Velocity calculation help present
+PASS  Move menu CSS present
+PASS  Move handles use click cursor
+PASS  Legacy pointer-drag listener removed
+PASS  Top-level report remains normal single-column flow
+PASS  Legacy masonry span calculation remains removed
+PASS  Configuration edits are isolated inside modal component
+PASS  Estimation selection changes modal-local draft only
+PASS  React 16 configuration handlers capture values before functional state updates
+PASS  React 16 schedule handlers capture values before functional state updates
+PASS  Configuration event handlers use currentTarget capture
+PASS  Configuration relationships validated client-side
+PASS  Configuration relationships validated server-side
+PASS  Configuration validation errors stay visible in isolated modal
+PASS  Estimation override is sent to sprint report resolver
+PASS  Estimation override is sent to velocity resolver
+PASS  Estimation override is sent to next-sprint outlook resolver
+PASS  Project report also applies estimation override
+PASS  Backend supports issue-count estimation override
+PASS  Backend supports Original Estimate override in hours
+PASS  Backend validates selected custom estimation field
+PASS  Use Jira board setting resolves board estimation source
+PASS  Report cache is partitioned by estimation source
+PASS  Special synthetic estimation ids are never requested from Jira
+PASS  History uses selected estimation field values
+PASS  Report exposes effective estimation source
+PASS  Failed reload preserves the existing visible report
+PASS  Completion thresholds drive visible progress tone
+PASS  Sprint Health delivery progress uses configured completion tone
+PASS  Progress ring reflects configured completion tone
+PASS  Unresolved defect and overdue thresholds drive Delivery Risk tone
+PASS  Delivery Risk drills into unresolved defects only
+PASS  Minimum Remaining Estimate coverage remains live-configured
+PASS  Maximum next-sprint velocity load now uses configuration
+PASS  Estimation source changes refresh report transactionally after save
+PASS  Threshold-only changes avoid unnecessary Jira reload
+PASS  Estimation labels adapt for items, hours and points
+PASS  V1 UI baseline remains command-move based
+PASS  Configuration edits do not rerender report-owned draft state
+PASS  Overview order is applied with React style props
+PASS  Overview move controls are React-managed buttons
+PASS  Configuration modal owns its own saving and notice state
+PASS  Configuration modal saves through parent callback only
+PASS  Estimation save is transactional before live settings commit
+PASS  Failed estimation refresh rolls persisted settings back
+PASS  Report loader can rethrow transactional configuration failures
+PASS  Project report loader is also transactional for configuration changes
+PASS  React error boundary prevents a white-screen-only failure
+PASS  Global and gadget views are wrapped by error boundary
+PASS  Fatal recovery CSS present
+PASS  Overall RAG is visible in Executive Pulse
+PASS  Overall RAG uses configured thresholds
+PASS  Scheduler exact-minute validation accepts HH:mm
+PASS  Scheduler exact-minute validator behaves correctly
+PASS  Scheduler validates time zone client-side
+PASS  Scheduler validates time zone server-side
+PASS  Scheduler stores calendar reminder minutes
+PASS  Scheduler offers Google Calendar
+PASS  Scheduler offers Outlook Calendar
+PASS  Scheduler offers recurring ICS download
+PASS  Scheduler avoids five-minute Forge polling
+PASS  Assistant is floating instead of toolbar action
+PASS  Assistant opens without a generated report
+PASS  Assistant clears submitted question immediately
+PASS  Assistant maintains conversational message history
+PASS  Assistant keeps lightweight sprint context
+PASS  Assistant supports contextual follow-up buttons
+PASS  Assistant resolves named projects and sprints
+PASS  Assistant searches other Scrum boards for named sprint
+PASS  Assistant can compare sprints
+PASS  Assistant has Jira snapshot resolver without formal report generation
+PASS  Assistant snapshot resolver does not consume report quota
+PASS  Assistant uses no external AI API
+PASS  CSS braces balanced
+
+149 regression checks passed.

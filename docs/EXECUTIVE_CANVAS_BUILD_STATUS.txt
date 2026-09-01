@@ -1,0 +1,18 @@
+StatusDeck executive canvas build status — 2026-08-10
+
+Source regression: PASS (51/51)
+CSS brace check: PASS
+JS delimiter count sanity check: PASS
+Critical non-UI files unchanged from prior package: PASS
+  - manifest.yml
+  - src/index.js
+  - root package.json / package-lock.json
+  - static/hello-world package.json / package-lock.json
+
+Frontend dependency/build validation in the OpenAI sandbox:
+- `npm ci --ignore-scripts` was attempted.
+- The sandbox internal npm mirror returned HTTP 404 while resolving React peer packages.
+- `npm run build` was then attempted and could not run because react-scripts was not installed after the failed npm ci.
+- Therefore a production frontend build could not be truthfully completed in this sandbox.
+
+Run the local install/build commands in the normal StatusDeck development environment before Forge deployment.

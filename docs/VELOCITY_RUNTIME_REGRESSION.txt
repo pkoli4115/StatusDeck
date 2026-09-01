@@ -1,0 +1,24 @@
+StatusDeck Velocity Runtime Hotfix regression
+Date: 2026-08-10
+
+PASS - backend JavaScript syntax (`node --check src/index.js`)
+PASS - 26/26 automated source regression checks
+PASS - existing Sprint report resolver preserved
+PASS - existing Velocity resolver preserved
+PASS - existing PPT export source preserved
+PASS - existing PDF export source preserved
+PASS - Marketplace licensing preserved
+PASS - KVS oversize-cache protection preserved
+PASS - velocity candidate search bounded by sprint history end
+PASS - velocity recent closed sprints processed concurrently
+PASS - velocity cache hit/generated/fallback structured logs present
+PASS - frontend uses Promise.allSettled for sprint + supplementary sections
+PASS - sprint report remains critical while velocity/outlook are resilient
+PASS - warning banner added for supplementary failure only
+
+NOT RUN IN CONTAINER - frontend production build after this hotfix.
+Reason: container npm registry returned E404 for yocto-queue while attempting npm ci.
+The user's local machine already successfully installed the supplied frontend dependency tree and built the immediately preceding package. Re-run `npm run build` locally after replacing this package.
+
+NOT RUN IN CONTAINER - forge lint/deploy.
+Run locally after frontend build.

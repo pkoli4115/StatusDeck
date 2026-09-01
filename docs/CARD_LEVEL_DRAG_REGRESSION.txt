@@ -1,0 +1,28 @@
+PASS  global page preserved
+PASS  project page added
+PASS  board action added
+PASS  backlog action added
+PASS  dashboard gadget added
+PASS  licensing preserved
+PASS  storage scope preserved
+PASS  Sprint report resolver preserved
+PASS  Velocity resolver preserved
+PASS  Usage resolver preserved
+PASS  License resolver preserved
+PASS  Board config resolver added
+PASS  Reporting settings resolver added
+PASS  Commentary resolver added
+PASS  Scheduler settings resolver added
+PASS  No HDP hardcode
+PASS  PowerPoint export preserved
+PASS  PDF export preserved
+PASS  Project/program report added
+PASS  Estimation detection UI added
+PASS  Calculation help added
+PASS  Draft/publish commentary added
+PASS  Return to Green added
+PASS  Local assistant added
+PASS  Collaboration copy added
+PASS  CSS braces balanced
+
+26 regression checks passed.

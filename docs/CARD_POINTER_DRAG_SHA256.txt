@@ -1,0 +1,3 @@
+c20b71063b7f708cdd3d9812692ab76c69fcfa0752db0240d4f1d5c7e4314bc3  static/hello-world/src/App.js
+4ff76f85e2004d121d7f3dad8b4c34f1593db5f4b559d6a42df05acaf2abc655  static/hello-world/src/App.css
+21eea2de8ec6beaab44559432c6e116e3155ebcd5804e32b74493ade8eacbd75  scripts/regression-check.mjs

@@ -1,0 +1,17 @@
+StatusDeck baseline refinement validation
+Date: 2026-08-10
+
+PASS - 76/76 source regression checks
+PASS - backend JavaScript syntax (`node --check src/index.js`)
+PASS - App.js JSX/JavaScript parse (TypeScript parser; no TS1xxx syntax diagnostics)
+PASS - manifest.yml unchanged from baseline
+PASS - src/index.js unchanged from baseline
+PASS - root package.json/package-lock.json unchanged from baseline
+PASS - frontend package.json/package-lock.json unchanged from baseline
+
+Environment limitations:
+- `npm ci` could not complete in the OpenAI sandbox because its internal npm mirror returned HTTP 404 while resolving React peer metadata.
+- Consequently `npm run build` could not run here because react-scripts was not installed.
+- Forge CLI is not installed in this sandbox, so `forge lint` could not run here.
+
+Run npm build and Forge lint/deploy in the normal StatusDeck development environment before deployment.

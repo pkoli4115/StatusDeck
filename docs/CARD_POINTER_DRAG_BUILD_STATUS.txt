@@ -1,0 +1,14 @@
+BUILD STATUS: ENVIRONMENT BLOCKED (not claimed as passed)
+
+Attempted:
+  cd static/hello-world
+  npm ci --legacy-peer-deps
+
+Sandbox result:
+  npm registry HTTP 404 for yocto-queue@0.1.0 from the internal OpenAI npm mirror.
+
+Required developer-machine validation before deploy:
+  cd static\hello-world
+  npm run build
+  cd ..\..
+  forge lint

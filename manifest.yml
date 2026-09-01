@@ -4,7 +4,44 @@ modules:
       resource: main
       resolver:
         function: resolver
-      title: Executive Sprint Reporting
+      title: StatusDeck - Executive Sprint Reporting
+
+  jira:projectPage:
+    - key: statusdeck-project-page
+      resource: main
+      resolver:
+        function: resolver
+      title: StatusDeck
+      layout: blank
+
+  jira:boardAction:
+    - key: statusdeck-board-action
+      resource: main
+      resolver:
+        function: resolver
+      title: Open StatusDeck
+      tooltip: Create an executive sprint report for this board
+      actionType: modal
+      viewportSize: max
+
+  jira:backlogAction:
+    - key: statusdeck-backlog-action
+      resource: main
+      resolver:
+        function: resolver
+      title: Open StatusDeck
+      tooltip: Create an executive sprint report for this backlog
+      actionType: modal
+      viewportSize: max
+
+  jira:dashboardGadget:
+    - key: statusdeck-dashboard-gadget
+      title: StatusDeck - Executive Sprint Reporting
+      description: Open StatusDeck to create management-ready Jira sprint reports, PowerPoint decks and PDFs.
+      thumbnail: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+      resource: main
+      resolver:
+        function: resolver
 
   function:
     - key: resolver
@@ -20,13 +57,26 @@ permissions:
     - read:jira-work
     - read:project:jira
     - read:board-scope:jira-software
+    - read:board-scope.admin:jira-software
     - read:sprint:jira-software
     - read:issue-details:jira
     - read:jql:jira
     - read:user:jira
     - storage:app
+    - read:space:confluence
+    - read:page:confluence
+    - write:page:confluence
+    - read:content-details:confluence
+    - write:attachment:confluence
 
 app:
+  compatibility:
+    jira:
+      required: true
+    confluence:
+      required: false
+  licensing:
+    enabled: true
   runtime:
     name: nodejs24.x
     memoryMB: 256

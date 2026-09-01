@@ -1,0 +1,14 @@
+Frontend production build was attempted in the sandbox.
+
+Result: NOT EXECUTED TO COMPLETION because dependencies are not bundled in the source ZIP and the sandbox npm mirror returned HTTP 404 while running npm ci.
+
+Local validation commands:
+1. node scripts\regression-check.mjs
+2. cd static\hello-world
+3. npm ci
+4. npm run build
+5. cd ..\..
+6. forge lint
+7. forge deploy -e development
+
+If node_modules is already valid in your working copy, npm ci can be skipped and npm run build can be run directly.

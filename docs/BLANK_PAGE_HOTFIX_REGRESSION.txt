@@ -1,0 +1,12 @@
+StatusDeck blank-page hotfix
+Date: 2026-08-10
+
+PASS - activeReportPreset declared before masonry useEffect dependency evaluation
+PASS - 26/26 existing source regression checks
+PASS - manifest unchanged
+PASS - backend unchanged
+PASS - permissions/scopes unchanged
+PASS - PPT/PDF code paths unchanged
+PASS - KVS/velocity hotfixes preserved
+
+Local npm run build + forge lint + development deployment remain required.

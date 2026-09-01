@@ -1,0 +1,24 @@
+
+> jira-full-page-custom-ui-static@0.2.17-next.8 build
+> react-scripts build
+
+Creating an optimized production build...
+Compiled successfully.
+
+File sizes after gzip:
+
+  352.02 kB  build/static/js/main.e6382d3b.js
+  46.37 kB   build/static/js/239.ed5d15bd.chunk.js
+  43.34 kB   build/static/js/455.dd8bc76e.chunk.js
+  10.95 kB   build/static/css/main.b1cb2d6e.css
+  8.75 kB    build/static/js/213.2bbc9ada.chunk.js
+
+The project was built assuming it is hosted at ./.
+You can control this with the homepage field in your package.json.
+
+The build folder is ready to be deployed.
+
+Find out more about deployment here:
+
+  https://cra.link/deployment
+

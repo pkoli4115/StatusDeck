@@ -1,0 +1,40 @@
+PASS  global page preserved
+PASS  project page added
+PASS  board action added
+PASS  backlog action added
+PASS  dashboard gadget added
+PASS  licensing preserved
+PASS  storage scope preserved
+PASS  Sprint report resolver preserved
+PASS  Velocity resolver preserved
+PASS  Usage resolver preserved
+PASS  License resolver preserved
+PASS  Board config resolver added
+PASS  Reporting settings resolver added
+PASS  Commentary resolver added
+PASS  Scheduler settings resolver added
+PASS  No HDP hardcode
+PASS  PowerPoint export preserved
+PASS  PDF export preserved
+PASS  Project/program report added
+PASS  Estimation detection UI added
+PASS  Calculation help added
+PASS  Draft/publish commentary added
+PASS  Return to Green added
+PASS  Local assistant added
+PASS  Collaboration copy added
+PASS  Pointer card drag enabled
+PASS  Card drag hit-testing enabled
+PASS  Native card HTML5 drag disabled
+PASS  Nested card drag propagation blocked
+PASS  Pointer drag CSS preserved
+PASS  Logical overview drag canvas enabled
+PASS  Headline KPI block preserved as one drag item
+PASS  Headline KPIs stay internally grouped
+PASS  Management commentary is a peer drag item
+PASS  Overview order stored as v2 preference
+PASS  Top-level report uses normal single-column flow
+PASS  Legacy masonry span calculation removed
+PASS  CSS braces balanced
+
+38 regression checks passed.

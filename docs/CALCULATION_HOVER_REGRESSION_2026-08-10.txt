@@ -1,0 +1,83 @@
+PASS  global page preserved
+PASS  project page preserved
+PASS  board action preserved
+PASS  backlog action preserved
+PASS  dashboard gadget preserved
+PASS  licensing preserved
+PASS  storage scope preserved
+PASS  Sprint report resolver preserved
+PASS  Velocity resolver preserved
+PASS  Usage resolver preserved
+PASS  License resolver preserved
+PASS  Board config resolver preserved
+PASS  Reporting settings resolver preserved
+PASS  Commentary resolver preserved
+PASS  Scheduler settings resolver preserved
+PASS  No HDP hardcode
+PASS  PowerPoint export preserved
+PASS  PDF export preserved
+PASS  Full export still includes Burndown
+PASS  Project/program report preserved
+PASS  Estimation detection UI preserved
+PASS  Draft/publish commentary preserved
+PASS  Return to Green preserved
+PASS  Local assistant preserved
+PASS  Collaboration copy preserved
+PASS  Native top-level section dragging retired
+PASS  Section dots open deterministic move menu
+PASS  Section menu exposes four directions
+PASS  Top-level section Up/Down changes saved order
+PASS  Fresh top-level section preference resets flaky drag order
+PASS  Overview uses command movement instead of drag hit-testing
+PASS  Only overview logical blocks get card move controls
+PASS  Overview move menu exposes four directions
+PASS  Overview Left/Right swaps same-row peers
+PASS  Overview Up/Down swaps deterministic row/column positions
+PASS  Fresh overview order preference resets broken experimental layout
+PASS  Management commentary defaults first
+PASS  Management commentary remains full width
+PASS  Sprint Health remains full width and owns core KPIs
+PASS  Core KPI labels remain grouped
+PASS  Risk and Scope Health remain half-width peers
+PASS  Work Distribution and Capacity remain half-width peers
+PASS  Velocity and Return to Green remain overview blocks
+PASS  Overview grid respects logical order rather than dense backfill
+PASS  Compact live Burndown remains inside Sprint Health
+PASS  Compact Burndown uses event-level live data
+PASS  Detailed web Burndown restored as a separate section
+PASS  Detailed Burndown supports Daily and Live event modes
+PASS  Detailed Burndown supports Story Points and Remaining Effort
+PASS  Detailed Burndown is no longer disabled behind false guard
+PASS  Burndown export path preserved
+PASS  Compact live Burndown height constrained
+PASS  Detailed Burndown web height remains capped
+PASS  Detailed Burndown export/chart sizing code preserved
+PASS  Publish success feedback shown beside commentary actions
+PASS  Publish failure feedback shown beside commentary actions
+PASS  Commentary export receives full editor value
+PASS  PowerPoint export parses full commentary text
+PASS  PDF export preserves commentary continuation
+PASS  Planning checks are preserved in exported commentary
+PASS  Calculation help component preserved
+PASS  Calculation tooltip uses body portal
+PASS  Calculation tooltip opens on hover and keyboard focus
+PASS  Calculation tooltip also opens on pointer hover
+PASS  Calculation help has native browser hover fallback
+PASS  Calculation help has click fallback
+PASS  Metric decoration cannot intercept calculation hover
+PASS  Calculation trigger is explicitly pointer interactive
+PASS  Calculation tooltip is viewport-positioned
+PASS  Delivery completion calculation help present
+PASS  Delivery health calculation help present
+PASS  Scope calculation help present
+PASS  Effort calculation help present
+PASS  Coverage calculation help present
+PASS  Velocity calculation help present
+PASS  Move menu CSS present
+PASS  Move handles use click cursor
+PASS  Legacy pointer-drag listener removed
+PASS  Top-level report remains normal single-column flow
+PASS  Legacy masonry span calculation remains removed
+PASS  CSS braces balanced
+
+81 regression checks passed.

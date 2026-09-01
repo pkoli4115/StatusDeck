@@ -1,0 +1,4 @@
+d129ca6bd60fc4d178fc793a3e35b9bf420db1216e77d146cb721bb2b99bc8a0  manifest.yml
+7ecd9782595548961a6cc5b2f9c82cd10680a5e2287bcf8d235f19651d5232a4  src/index.js
+c134380f2bf8e0a975ed56bc64e75be0b3a20c361a026d8ffda0407d135764d2  static/hello-world/src/App.js
+4ab4f76e97be683f4b4f9df014be449011ac5897c15c3a594636dbfcb96a520e  static/hello-world/src/App.css
