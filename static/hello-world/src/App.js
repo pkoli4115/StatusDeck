@@ -4090,7 +4090,32 @@ async function createProjectPowerPoint({ projectReport, projectView, projectComm
 
   const palette = getExportPalette();
   let page = 1;
-  const addHeader = (slide, title, subtitle = '') => addPptHeader(slide, title, subtitle, page++);
+  const addHeader = (slide, title, subtitle = '') => {
+    const currentPage = page++;
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0, y: 0, w: 13.333, h: 0.18,
+      fill: { color: palette.blue },
+      line: { color: palette.blue, transparency: 100 },
+    });
+    addPptText(slide, title, {
+      x: 0.55, y: 0.38, w: 8.8, h: 0.4,
+      fontSize: 23, bold: true, color: palette.navy,
+    });
+    if (subtitle) {
+      addPptText(slide, subtitle, {
+        x: 0.58, y: 0.84, w: 10.8, h: 0.25,
+        fontSize: 10, color: palette.grey,
+      });
+    }
+    addPptText(slide, 'Executive Project & Program Reporting · by QTI Labs', {
+      x: 0.55, y: 7.18, w: 6.4, h: 0.16,
+      fontSize: 7.5, color: palette.grey,
+    });
+    addPptText(slide, String(currentPage), {
+      x: 12.3, y: 7.18, w: 0.45, h: 0.16,
+      fontSize: 7.5, color: palette.grey, align: 'right',
+    });
+  };
   const ragColor = projectView.rag.label === 'RED'
     ? palette.red
     : projectView.rag.label === 'AMBER'
@@ -4103,6 +4128,22 @@ async function createProjectPowerPoint({ projectReport, projectView, projectComm
     projectNarrativeText(projectReport, DEFAULT_REPORTING_SETTINGS)
   ).trim();
   const commentary = parseManagementCommentaryForExport(commentaryText, narrative);
+  const usableCustomKpis = (customKpiResults ?? []).filter((kpi) => {
+    if (!kpi || kpi.error) return false;
+    const numericValue = Number(kpi.value ?? kpi.matchedIssues ?? 0);
+    const hasPositiveValue = Number.isFinite(numericValue) && numericValue > 0;
+    const hasBreakdown = Array.isArray(kpi.breakdown)
+      ? kpi.breakdown.some((item) => Number(item?.value ?? item?.count ?? 0) > 0)
+      : Array.isArray(kpi.groups)
+        ? kpi.groups.some((item) => Number(item?.value ?? item?.count ?? 0) > 0)
+        : false;
+    const hasTimeSeries = Array.isArray(kpi.timeSeries) && kpi.timeSeries.some((point) =>
+      Object.entries(point ?? {}).some(([key, value]) =>
+        key !== 'label' && key !== 'date' && key !== 'timestamp' && Number(value) > 0
+      )
+    );
+    return hasPositiveValue || hasBreakdown || hasTimeSeries;
+  });
 
   const addPanel = (slide, { x, y, w, h, title, items, accent = palette.blue, emptyText = 'No current exceptions.' }) => {
     slide.addShape(pptx.ShapeType.roundRect, {
@@ -4181,50 +4222,151 @@ async function createProjectPowerPoint({ projectReport, projectView, projectComm
   addPanel(slide, { x: 6.78, y: 3.95, w: 5.9, h: 2.2, title: 'Release / Milestone Outlook', items: commentary.outlook, accent: palette.green, emptyText: 'No unreleased Jira milestone is available.' });
 
   slide = pptx.addSlide();
-  addHeader(slide, 'Cross-Team Delivery Health', `${projectView.teams.length} included Scrum boards · completion and RAG remain team-level signals`);
-  const completionEntries = projectView.teams.slice(0, 10).map((team) => ({
-    label: team.board.name,
-    value: Number(team.completion ?? 0),
-    suffix: '%',
-    color: team.rag.label === 'RED' ? palette.red : team.rag.label === 'AMBER' ? palette.amber : palette.green,
-  }));
-  addPptHorizontalBars(pptx, slide, completionEntries, {
-    x: 0.65, y: 1.28, w: 5.9, h: 4.9,
-    labelWidth: 2.0, valueWidth: 0.65, maxValue: 100,
-  });
-  addPptText(slide, 'Team exceptions', {
-    x: 6.85, y: 1.28, w: 2.2, h: 0.25, fontSize: 10, bold: true, color: palette.navy,
-  });
-  projectView.teams.slice(0, 9).forEach((team, index) => {
-    const y = 1.72 + index * 0.5;
-    addPptText(slide, team.board.name, { x: 6.85, y, w: 2.2, h: 0.2, fontSize: 8.5, bold: true, color: palette.navy });
-    addPptText(slide, team.rag.label, { x: 9.0, y, w: 0.75, h: 0.2, fontSize: 8, bold: true, color: team.rag.label === 'RED' ? palette.red : team.rag.label === 'AMBER' ? palette.amber : palette.green });
-    addPptText(slide, `${formatNumber(team.report?.metrics?.open ?? 0)} open · ${formatNumber(team.overdue)} overdue · ${formatNumber(team.unresolvedDefects)} defects · ${formatNumber(team.blocked)} blocked`, {
-      x: 9.78, y, w: 2.9, h: 0.2, fontSize: 7.3, color: palette.grey,
+  addHeader(
+    slide,
+    'Cross-Team Delivery Health',
+    `${projectView.teams.length} included Scrum ${projectView.teams.length === 1 ? 'board' : 'boards'} · completion and RAG remain team-level signals`
+  );
+  if (projectView.teams.length === 1) {
+    const team = projectView.teams[0];
+    const metrics = team.report?.metrics ?? {};
+    const teamRagColor = team.rag.label === 'RED' ? palette.red : team.rag.label === 'AMBER' ? palette.amber : palette.green;
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: 0.68, y: 1.28, w: 12.0, h: 1.0,
+      rectRadius: 0.05, fill: { color: palette.white },
+      line: { color: palette.border, pt: 0.8 },
     });
-  });
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0.68, y: 1.28, w: 0.08, h: 1.0,
+      fill: { color: teamRagColor }, line: { color: teamRagColor, transparency: 100 },
+    });
+    addPptText(slide, team.board.name, { x: 0.95, y: 1.48, w: 4.5, h: 0.26, fontSize: 17, bold: true, color: palette.navy });
+    addPptText(slide, team.sprint?.name || 'No sprint', { x: 0.95, y: 1.82, w: 4.5, h: 0.2, fontSize: 8.5, color: palette.grey });
+    addPptText(slide, team.rag.label, { x: 10.75, y: 1.48, w: 1.4, h: 0.28, fontSize: 15, bold: true, color: teamRagColor, align: 'right' });
+
+    const singleTeamCards = [
+      ['Completion', `${formatNumber(team.completion)}%`, palette.blue, `${formatNumber(metrics.completedStoryPoints ?? 0)} completed / ${formatNumber(metrics.committedStoryPoints ?? 0)} scope`],
+      ['Open Work', formatNumber(metrics.open ?? 0), palette.blue, 'Current reporting sprint'],
+      ['Overdue', formatNumber(team.overdue), team.overdue ? palette.amber : palette.green, team.overdue ? 'Needs owner/date review' : 'No overdue open work'],
+      ['Defects', formatNumber(team.unresolvedDefects), team.unresolvedDefects ? palette.red : palette.green, 'Unresolved bug / defect items'],
+      ['Blocked', formatNumber(team.blocked), team.blocked ? palette.red : palette.green, 'Blocked / waiting statuses'],
+      ['Velocity', formatNumber(team.velocity?.averageCompleted ?? 0), palette.blue, `${team.report?.estimationSource?.unit ?? 'team units'} recent average`],
+    ];
+    singleTeamCards.forEach((card, index) => {
+      const col = index % 3;
+      const row = Math.floor(index / 3);
+      addPptMetricCard(pptx, slide, {
+        x: 0.68 + col * 4.05,
+        y: 2.65 + row * 1.58,
+        w: 3.72,
+        h: 1.3,
+        label: card[0], value: card[1], helper: card[3], accent: card[2],
+      });
+    });
+    addPptText(slide, team.rag.reason || 'Within configured reporting thresholds.', {
+      x: 0.78, y: 5.98, w: 11.8, h: 0.34,
+      fontSize: 9.5, bold: true, color: teamRagColor,
+    });
+  } else {
+    const completionEntries = projectView.teams.slice(0, 10).map((team) => ({
+      label: team.board.name,
+      value: Number(team.completion ?? 0),
+      color: team.rag.label === 'RED' ? palette.red : team.rag.label === 'AMBER' ? palette.amber : palette.green,
+    }));
+    addPptHorizontalBars(pptx, slide, completionEntries, {
+      x: 0.65, y: 1.28, w: 5.9, h: 4.9,
+      labelWidth: 2.0, valueWidth: 0.65,
+    });
+    addPptText(slide, 'Team exceptions', {
+      x: 6.85, y: 1.28, w: 2.2, h: 0.25, fontSize: 10, bold: true, color: palette.navy,
+    });
+    projectView.teams.slice(0, 9).forEach((team, index) => {
+      const y = 1.72 + index * 0.5;
+      addPptText(slide, team.board.name, { x: 6.85, y, w: 2.2, h: 0.2, fontSize: 8.5, bold: true, color: palette.navy });
+      addPptText(slide, team.rag.label, { x: 9.0, y, w: 0.75, h: 0.2, fontSize: 8, bold: true, color: team.rag.label === 'RED' ? palette.red : team.rag.label === 'AMBER' ? palette.amber : palette.green });
+      addPptText(slide, `${formatNumber(team.report?.metrics?.open ?? 0)} open · ${formatNumber(team.overdue)} overdue · ${formatNumber(team.unresolvedDefects)} defects · ${formatNumber(team.blocked)} blocked`, {
+        x: 9.78, y, w: 2.9, h: 0.2, fontSize: 7.3, color: palette.grey,
+      });
+    });
+  }
 
   slide = pptx.addSlide();
   addHeader(slide, 'Scope, Forecast & Predictability', 'Scope movement and effort-confidence signals by team');
   const scopeRows = projectView.teams.filter((team) => team.hasScopeBaseline).slice(0, 10);
-  addPptText(slide, 'Scope change from sprint-start item baseline', { x: 0.65, y: 1.2, w: 5.9, h: 0.24, fontSize: 10, bold: true, color: palette.navy });
-  scopeRows.forEach((team, index) => {
-    const y = 1.62 + index * 0.47;
+  if (projectView.teams.length === 1) {
+    const team = projectView.teams[0];
     const delta = Number(team.scopeDeltaPercentage ?? 0);
-    addPptText(slide, team.board.name, { x: 0.65, y, w: 2.1, h: 0.2, fontSize: 8.3, bold: true, color: palette.navy });
-    addPptText(slide, `${delta > 0 ? '+' : ''}${formatNumber(delta)}%`, { x: 2.8, y, w: 0.8, h: 0.2, fontSize: 8.3, bold: true, color: delta > 0 ? palette.amber : delta < 0 ? palette.blue : palette.green });
-    addPptText(slide, `${formatNumber(team.originalItems ?? 0)} → ${formatNumber(team.currentItems ?? 0)} items`, { x: 3.6, y, w: 2.4, h: 0.2, fontSize: 8, color: palette.grey });
-  });
-  if (!scopeRows.length) addPptText(slide, 'No reliable sprint-start scope baseline is available for the included teams.', { x: 0.7, y: 1.75, w: 5.7, h: 0.5, fontSize: 9, color: palette.grey });
+    const ready = !team.report?.metrics?.effort?.forecastProvisional &&
+      Number(team.remainingCoverage ?? 0) >= Number(projectView.minimumRemainingCoverage ?? 80);
+    const scopeAccent = delta > 0 ? palette.amber : delta < 0 ? palette.blue : palette.green;
+    const forecastAccent = ready ? palette.green : palette.amber;
 
-  addPptText(slide, 'Forecast confidence', { x: 6.85, y: 1.2, w: 2.2, h: 0.24, fontSize: 10, bold: true, color: palette.navy });
-  projectView.teams.slice(0, 10).forEach((team, index) => {
-    const y = 1.62 + index * 0.47;
-    const ready = !team.report?.metrics?.effort?.forecastProvisional && Number(team.remainingCoverage ?? 0) >= Number(projectView.minimumRemainingCoverage ?? 80);
-    addPptText(slide, team.board.name, { x: 6.85, y, w: 2.25, h: 0.2, fontSize: 8.3, bold: true, color: palette.navy });
-    addPptText(slide, ready ? 'Ready' : 'Provisional', { x: 9.1, y, w: 1.0, h: 0.2, fontSize: 8, bold: true, color: ready ? palette.green : palette.amber });
-    addPptText(slide, `${formatNumber(team.remainingCoverage ?? 0)}% remaining-estimate coverage`, { x: 10.1, y, w: 2.5, h: 0.2, fontSize: 7.3, color: palette.grey });
-  });
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: 0.7, y: 1.35, w: 5.85, h: 4.75,
+      rectRadius: 0.06, fill: { color: palette.white }, line: { color: palette.border, pt: 0.8 },
+    });
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0.7, y: 1.35, w: 0.08, h: 4.75,
+      fill: { color: scopeAccent }, line: { color: scopeAccent, transparency: 100 },
+    });
+    addPptText(slide, 'Scope Change', { x: 1.0, y: 1.7, w: 2.4, h: 0.25, fontSize: 13, bold: true, color: palette.navy });
+    addPptText(slide, team.hasScopeBaseline ? `${delta > 0 ? '+' : ''}${formatNumber(delta)}%` : '—', {
+      x: 1.0, y: 2.15, w: 2.8, h: 0.6, fontSize: 34, bold: true, color: scopeAccent,
+    });
+    addPptText(slide, team.hasScopeBaseline
+      ? `${formatNumber(team.originalItems ?? 0)} → ${formatNumber(team.currentItems ?? 0)} Jira items`
+      : 'Reliable sprint-start scope baseline unavailable', {
+        x: 1.0, y: 2.9, w: 4.8, h: 0.3, fontSize: 11, color: palette.grey,
+      });
+    addPptText(slide, delta > 0
+      ? 'Scope increased after the sprint-start baseline. Validate additions and delivery expectations.'
+      : delta < 0
+        ? 'Scope decreased from the sprint-start baseline.'
+        : 'Current item scope remains aligned to the sprint-start baseline.', {
+        x: 1.0, y: 3.55, w: 4.8, h: 1.0, fontSize: 11, color: palette.navy, breakLine: true,
+      });
+
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: 6.78, y: 1.35, w: 5.85, h: 4.75,
+      rectRadius: 0.06, fill: { color: palette.white }, line: { color: palette.border, pt: 0.8 },
+    });
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 6.78, y: 1.35, w: 0.08, h: 4.75,
+      fill: { color: forecastAccent }, line: { color: forecastAccent, transparency: 100 },
+    });
+    addPptText(slide, 'Forecast Confidence', { x: 7.08, y: 1.7, w: 2.8, h: 0.25, fontSize: 13, bold: true, color: palette.navy });
+    addPptText(slide, ready ? 'READY' : 'PROVISIONAL', {
+      x: 7.08, y: 2.15, w: 3.8, h: 0.55, fontSize: 28, bold: true, color: forecastAccent,
+    });
+    addPptText(slide, `${formatNumber(team.remainingCoverage ?? 0)}% Remaining Estimate coverage`, {
+      x: 7.08, y: 2.9, w: 4.8, h: 0.3, fontSize: 11, color: palette.grey,
+    });
+    addPptText(slide, ready
+      ? `Meets the configured ${formatNumber(projectView.minimumRemainingCoverage ?? 80)}% coverage threshold and is not marked provisional.`
+      : `Does not yet meet the configured ${formatNumber(projectView.minimumRemainingCoverage ?? 80)}% coverage threshold or the effort forecast is provisional.`, {
+        x: 7.08, y: 3.55, w: 4.8, h: 1.0, fontSize: 11, color: palette.navy, breakLine: true,
+      });
+    addPptText(slide, team.board.name, { x: 0.9, y: 6.35, w: 11.5, h: 0.22, fontSize: 8.5, color: palette.grey, align: 'center' });
+  } else {
+    addPptText(slide, 'Scope change from sprint-start item baseline', { x: 0.65, y: 1.2, w: 5.9, h: 0.24, fontSize: 10, bold: true, color: palette.navy });
+    scopeRows.forEach((team, index) => {
+      const y = 1.62 + index * 0.47;
+      const delta = Number(team.scopeDeltaPercentage ?? 0);
+      addPptText(slide, team.board.name, { x: 0.65, y, w: 2.1, h: 0.2, fontSize: 8.3, bold: true, color: palette.navy });
+      addPptText(slide, `${delta > 0 ? '+' : ''}${formatNumber(delta)}%`, { x: 2.8, y, w: 0.8, h: 0.2, fontSize: 8.3, bold: true, color: delta > 0 ? palette.amber : delta < 0 ? palette.blue : palette.green });
+      addPptText(slide, `${formatNumber(team.originalItems ?? 0)} → ${formatNumber(team.currentItems ?? 0)} items`, { x: 3.6, y, w: 2.4, h: 0.2, fontSize: 8, color: palette.grey });
+    });
+    if (!scopeRows.length) addPptText(slide, 'No reliable sprint-start scope baseline is available for the included teams.', { x: 0.7, y: 1.75, w: 5.7, h: 0.5, fontSize: 9, color: palette.grey });
+
+    addPptText(slide, 'Forecast confidence', { x: 6.85, y: 1.2, w: 2.2, h: 0.24, fontSize: 10, bold: true, color: palette.navy });
+    projectView.teams.slice(0, 10).forEach((team, index) => {
+      const y = 1.62 + index * 0.47;
+      const ready = !team.report?.metrics?.effort?.forecastProvisional && Number(team.remainingCoverage ?? 0) >= Number(projectView.minimumRemainingCoverage ?? 80);
+      addPptText(slide, team.board.name, { x: 6.85, y, w: 2.25, h: 0.2, fontSize: 8.3, bold: true, color: palette.navy });
+      addPptText(slide, ready ? 'Ready' : 'Provisional', { x: 9.1, y, w: 1.0, h: 0.2, fontSize: 8, bold: true, color: ready ? palette.green : palette.amber });
+      addPptText(slide, `${formatNumber(team.remainingCoverage ?? 0)}% remaining-estimate coverage`, { x: 10.1, y, w: 2.5, h: 0.2, fontSize: 7.3, color: palette.grey });
+    });
+  }
 
   slide = pptx.addSlide();
   addHeader(slide, 'Operational Flow & Workload', 'Current Jira status, work type and assignee signals');
@@ -4282,20 +4424,29 @@ async function createProjectPowerPoint({ projectReport, projectView, projectComm
       const col = index % 2;
       const row = Math.floor(index / 2);
       const x = 0.65 + col * 6.15;
-      const y = 1.2 + row * 1.06;
+      const y = 1.18 + row * 1.08;
+      const statusText = epic.status || 'No status';
+      const statusCategory = String(epic.statusCategoryKey || '').toLowerCase();
+      const accent = statusCategory === 'done' ? palette.green : /progress/i.test(statusText) ? palette.blue : palette.amber;
       slide.addShape(pptx.ShapeType.roundRect, {
-        x, y, w: 5.75, h: 0.82, rectRadius: 0.04,
+        x, y, w: 5.75, h: 0.86, rectRadius: 0.04,
         fill: { color: palette.white }, line: { color: palette.border, pt: 0.7 },
       });
-      addPptText(slide, `${epic.key} · ${epic.status || 'No status'}`, { x: x + 0.15, y: y + 0.1, w: 2.1, h: 0.18, fontSize: 7.8, bold: true, color: palette.blue });
-      addPptText(slide, epic.summary || 'No summary', { x: x + 0.15, y: y + 0.34, w: 5.4, h: 0.3, fontSize: 8, color: palette.navy });
+      slide.addShape(pptx.ShapeType.rect, {
+        x, y, w: 0.06, h: 0.86,
+        fill: { color: accent }, line: { color: accent, transparency: 100 },
+      });
+      addPptText(slide, epic.key, { x: x + 0.18, y: y + 0.1, w: 1.2, h: 0.18, fontSize: 8.2, bold: true, color: palette.blue });
+      addPptText(slide, statusText, { x: x + 4.05, y: y + 0.1, w: 1.45, h: 0.18, fontSize: 7.5, bold: true, color: accent, align: 'right' });
+      addPptText(slide, epic.summary || 'No summary', { x: x + 0.18, y: y + 0.36, w: 5.25, h: 0.28, fontSize: 9.2, bold: true, color: palette.navy });
+      if (epic.dueDate) addPptText(slide, `Due ${formatDate(epic.dueDate)}`, { x: x + 0.18, y: y + 0.67, w: 2.0, h: 0.14, fontSize: 6.8, color: palette.grey });
     });
   }
 
-  if (customKpiResults.length) {
+  if (usableCustomKpis.length) {
     slide = pptx.addSlide();
     addHeader(slide, 'Organisation-defined KPIs', 'Saved Jira filters / custom JQL');
-    customKpiResults.slice(0, 12).forEach((kpi, index) => {
+    usableCustomKpis.slice(0, 12).forEach((kpi, index) => {
       addPptMetricCard(pptx, slide, {
         x: 0.7 + (index % 4) * 3.05,
         y: 1.3 + Math.floor(index / 4) * 1.7,
@@ -4315,7 +4466,7 @@ async function createProjectPdf({ projectReport, projectView, projectCommentaryT
   const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' }); let page=1;
   pdfAddPageHeader(doc, projectReport.projectName, 'PROJECT / PROGRAM REPORT', page++); doc.setFontSize(24); doc.text(`Overall RAG: ${projectView.rag.label}`,15,40); doc.setFontSize(13); doc.text(`Mean completion: ${projectView.meanCompletion}%   Teams on track: ${projectView.teamsOnTrack}   Teams at risk: ${projectView.teamsAtRisk}   Overdue: ${projectView.overdue}`,15,55);
   doc.addPage(); pdfAddPageHeader(doc,'Management summary','Generated from current Jira analysis',page++); doc.setFontSize(10); doc.text(doc.splitTextToSize(projectCommentaryText || projectNarrativeText(projectReport, DEFAULT_REPORTING_SETTINGS),260),15,35);
-  doc.addPage(); pdfAddPageHeader(doc,'Delivery & Team Health',`${projectView.teams.length} included Scrum boards`,page++); autoTable(doc,{startY:30,head:[['Board','Sprint','RAG','Progress','Open','Overdue','Defects']],body:projectView.teams.map(t=>[t.board.name,t.sprint?.name||'—',t.rag.label,`${t.completion}%`,t.report?.metrics?.open ?? 0,t.overdue,t.unresolvedDefects]),theme:'grid',headStyles:{fillColor:[16,42,67]}});
+  doc.addPage(); pdfAddPageHeader(doc,'Delivery & Team Health',`${projectView.teams.length} included Scrum ${projectView.teams.length === 1 ? 'board' : 'boards'}`,page++); autoTable(doc,{startY:30,head:[['Board','Sprint','RAG','Progress','Open','Overdue','Defects']],body:projectView.teams.map(t=>[t.board.name,t.sprint?.name||'—',t.rag.label,`${t.completion}%`,t.report?.metrics?.open ?? 0,t.overdue,t.unresolvedDefects]),theme:'grid',headStyles:{fillColor:[16,42,67]}});
   if (customKpiResults.length) { doc.addPage(); pdfAddPageHeader(doc,'Organisation-defined KPIs','Saved Jira filters / custom JQL',page++); autoTable(doc,{startY:30,head:[['KPI','Value','Matching issues']],body:customKpiResults.map(k=>[k.name,k.error?'—':formatNumber(k.value),k.error||String(k.matchedIssues??0)]),theme:'grid',headStyles:{fillColor:[16,42,67]}}); }
   doc.addPage(); pdfAddPageHeader(doc,'Quality, risk & release outlook','Project-level management exceptions',page++); doc.setFontSize(12); doc.text([`Overdue work: ${projectView.overdue}`,`Unresolved defects: ${projectView.unresolvedDefects}`,`Blocked / impeded: ${projectView.blocked}`,`Teams with scope growth: ${projectView.scopeIncreasedTeams}`,`Jira versions: ${projectView.versions.length}`],15,40);
   return doc;
@@ -5762,19 +5913,19 @@ function buildProjectManagementNarrative(projectReport, settings = DEFAULT_REPOR
   const actions = [];
   const outlook = [];
 
-  summary.push(`${view.teams.length} Scrum team${view.teams.length === 1 ? '' : 's'} are included in the current project view; ${view.teamsOnTrack} are Green and ${view.teamsAtRisk} require follow-up.`);
+  summary.push(`${view.teams.length} Scrum team${view.teams.length === 1 ? '' : 's'} ${view.teams.length === 1 ? 'is' : 'are'} included in the current project view; ${view.teamsOnTrack} ${view.teamsOnTrack === 1 ? 'is' : 'are'} Green and ${view.teamsAtRisk} ${view.teamsAtRisk === 1 ? 'requires' : 'require'} follow-up.`);
   summary.push(`Mean team completion is ${view.meanCompletion}% with ${view.open} open work item${view.open === 1 ? '' : 's'} across the latest active/closed reporting sprint for each board.`);
   if (view.totalItems > 0) summary.push(`The current cross-team reporting scope contains ${view.totalItems} Jira work item${view.totalItems === 1 ? '' : 's'}.`);
   if (view.scopeChangedTeams > 0) summary.push(`${view.scopeChangedTeams} team${view.scopeChangedTeams === 1 ? ' has' : 's have'} changed scope from a reliable sprint-start baseline; ${view.scopeIncreasedTeams} increased scope and ${view.scopeDecreasedTeams} reduced scope.`);
   if (view.scopeBaselineUnavailableTeams > 0) summary.push(`Sprint-start item scope could not be reconstructed reliably for ${view.scopeBaselineUnavailableTeams} team${view.scopeBaselineUnavailableTeams === 1 ? '' : 's'}; StatusDeck omits scope-growth claims for those teams.`);
-  if (view.teams.length > 0) summary.push(`${view.forecastReadyTeams} of ${view.teams.length} team${view.teams.length === 1 ? '' : 's'} have a non-provisional effort forecast with at least ${view.minimumRemainingCoverage}% Remaining Estimate coverage.`);
+  if (view.teams.length > 0) summary.push(`${view.forecastReadyTeams} of ${view.teams.length} team${view.teams.length === 1 ? '' : 's'} ${view.teams.length === 1 ? 'has' : 'have'} a non-provisional effort forecast with at least ${view.minimumRemainingCoverage}% Remaining Estimate coverage.`);
   if (view.openEpics.length > 0) summary.push(`${view.openEpics.length} open Epic${view.openEpics.length === 1 ? '' : 's'} are visible in the current Jira portfolio context.`);
 
   const redTeams = view.teams.filter((item) => item.rag.label === 'RED');
   const amberTeams = view.teams.filter((item) => item.rag.label === 'AMBER');
   if (redTeams.length) risks.push(`Immediate delivery attention is required for ${redTeams.map((item) => `${item.board.name} (${item.rag.reason})`).join('; ')}.`);
   if (amberTeams.length) risks.push(`${amberTeams.map((item) => item.board.name).join(', ')} ${amberTeams.length === 1 ? 'is' : 'are'} Amber and should be monitored against the configured thresholds.`);
-  if (view.overdue > 0) risks.push(`${view.overdue} overdue open item${view.overdue === 1 ? '' : 's'} exist across the included teams.`);
+  if (view.overdue > 0) risks.push(`${view.overdue} overdue open item${view.overdue === 1 ? '' : 's'} ${view.overdue === 1 ? 'exists' : 'exist'} across the included teams.`);
   if (view.unresolvedDefects > 0) risks.push(`${view.unresolvedDefects} unresolved defect${view.unresolvedDefects === 1 ? '' : 's'} remain across current reporting-sprint scope.`);
   if (view.blocked > 0) risks.push(`${view.blocked} open item${view.blocked === 1 ? ' is' : 's are'} in blocked / impediment-like statuses.`);
   if (view.scopeIncreasedTeams > 0) risks.push(`${view.scopeIncreasedTeams} team${view.scopeIncreasedTeams === 1 ? ' has' : 's have'} increased scope since the sprint-start baseline.`);
