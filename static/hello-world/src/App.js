@@ -4081,7 +4081,7 @@ function pdfBurndown(
 
 
 async function createProjectPowerPoint({ projectReport, projectView, projectCommentaryText, customKpiResults = [] }) {
-  const pptx = new pptxgen();
+  const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE'; pptx.author = 'QTI Labs'; pptx.subject = 'StatusDeck Project / Program Report'; pptx.title = `${projectReport.projectName} Project / Program Report`; pptx.company = 'QTI Labs';
   const palette = getExportPalette(); let page = 1;
   const addHeader = (slide, title, subtitle='') => addPptHeader(slide, title, subtitle, page++);
@@ -5455,9 +5455,21 @@ function deriveProjectReportView(projectReport, settings = DEFAULT_REPORTING_SET
   const unresolvedDefects = available.reduce((sum, item) => sum + item.unresolvedDefects, 0);
   const blocked = available.reduce((sum, item) => sum + item.blocked, 0);
   const open = available.reduce((sum, item) => sum + Number(item.report?.metrics?.open ?? 0), 0);
+  const totalItems = available.reduce((sum, item) => sum + Number(item.report?.metrics?.total ?? 0), 0);
   const scopeChangedTeams = available.filter((item) => item.hasScopeBaseline && item.scopeDeltaItems !== 0).length;
   const scopeIncreasedTeams = available.filter((item) => item.hasScopeBaseline && item.scopeDeltaItems > 0).length;
+  const scopeDecreasedTeams = available.filter((item) => item.hasScopeBaseline && item.scopeDeltaItems < 0).length;
   const scopeBaselineUnavailableTeams = available.filter((item) => !item.hasScopeBaseline).length;
+  const minimumRemainingCoverage = Number(settings?.rag?.minimumRemainingEstimateCoverage ?? 80);
+  const forecastReadyTeams = available.filter((item) =>
+    !item.report?.metrics?.effort?.forecastProvisional &&
+    Number(item.remainingCoverage ?? 0) >= minimumRemainingCoverage
+  ).length;
+  const forecastAttentionTeams = Math.max(0, available.length - forecastReadyTeams);
+  const averageRemainingEstimateCoverage = available.length
+    ? Math.round(available.reduce((sum, item) => sum + Number(item.remainingCoverage ?? 0), 0) / available.length)
+    : 0;
+
   const cadenceNumbers = available.map((item) => sprintSequenceNumber(item.sprint?.name)).filter((value) => Number.isFinite(value));
   const cadenceMismatch = cadenceNumbers.length > 1 && Math.max(...cadenceNumbers) - Math.min(...cadenceNumbers) >= 2;
 
@@ -5480,6 +5492,7 @@ function deriveProjectReportView(projectReport, settings = DEFAULT_REPORTING_SET
     });
   });
   const workload = [...workloadMap.values()].sort((a, b) => b.open - a.open || b.overdue - a.overdue).slice(0, 8);
+  const unassignedOpen = Number(workloadMap.get('Unassigned')?.open ?? 0);
 
   const activeVersions = (projectReport?.portfolioContext?.versions ?? [])
     .filter((version) => !version.archived)
@@ -5490,6 +5503,8 @@ function deriveProjectReportView(projectReport, settings = DEFAULT_REPORTING_SET
       return aDate - bDate;
     })
     .slice(0, 8);
+  const unreleasedVersions = activeVersions.filter((version) => !version.released);
+  const overdueVersions = unreleasedVersions.filter((version) => version.overdue);
   const epics = (projectReport?.portfolioContext?.epics ?? []).slice(0, 12);
   const openEpics = epics.filter((epic) => epic.statusCategoryKey !== 'done');
 
@@ -5501,14 +5516,23 @@ function deriveProjectReportView(projectReport, settings = DEFAULT_REPORTING_SET
     unresolvedDefects,
     blocked,
     open,
+    totalItems,
+    unassignedOpen,
     scopeChangedTeams,
     scopeIncreasedTeams,
+    scopeDecreasedTeams,
     scopeBaselineUnavailableTeams,
+    forecastReadyTeams,
+    forecastAttentionTeams,
+    averageRemainingEstimateCoverage,
+    minimumRemainingCoverage,
     cadenceMismatch,
     statusCounts,
     typeCounts,
     workload,
     versions: activeVersions,
+    unreleasedVersions,
+    overdueVersions,
     epics,
     openEpics,
     teamsOnTrack: ragCounts.GREEN,
@@ -5524,33 +5548,44 @@ function buildProjectManagementNarrative(projectReport, settings = DEFAULT_REPOR
   const outlook = [];
 
   summary.push(`${view.teams.length} Scrum team${view.teams.length === 1 ? '' : 's'} are included in the current project view; ${view.teamsOnTrack} are Green and ${view.teamsAtRisk} require follow-up.`);
-  summary.push(`Mean team completion is ${view.meanCompletion}% across the latest active/closed reporting sprint for each board.`);
-  if (view.scopeChangedTeams > 0) summary.push(`${view.scopeChangedTeams} team${view.scopeChangedTeams === 1 ? ' has' : 's have'} changed scope from a reliable sprint-start baseline; ${view.scopeIncreasedTeams} increased scope.`);
+  summary.push(`Mean team completion is ${view.meanCompletion}% with ${view.open} open work item${view.open === 1 ? '' : 's'} across the latest active/closed reporting sprint for each board.`);
+  if (view.totalItems > 0) summary.push(`The current cross-team reporting scope contains ${view.totalItems} Jira work item${view.totalItems === 1 ? '' : 's'}.`);
+  if (view.scopeChangedTeams > 0) summary.push(`${view.scopeChangedTeams} team${view.scopeChangedTeams === 1 ? ' has' : 's have'} changed scope from a reliable sprint-start baseline; ${view.scopeIncreasedTeams} increased scope and ${view.scopeDecreasedTeams} reduced scope.`);
   if (view.scopeBaselineUnavailableTeams > 0) summary.push(`Sprint-start item scope could not be reconstructed reliably for ${view.scopeBaselineUnavailableTeams} team${view.scopeBaselineUnavailableTeams === 1 ? '' : 's'}; StatusDeck omits scope-growth claims for those teams.`);
+  if (view.teams.length > 0) summary.push(`${view.forecastReadyTeams} of ${view.teams.length} team${view.teams.length === 1 ? '' : 's'} have a non-provisional effort forecast with at least ${view.minimumRemainingCoverage}% Remaining Estimate coverage.`);
+  if (view.openEpics.length > 0) summary.push(`${view.openEpics.length} open Epic${view.openEpics.length === 1 ? '' : 's'} are visible in the current Jira portfolio context.`);
 
   const redTeams = view.teams.filter((item) => item.rag.label === 'RED');
   const amberTeams = view.teams.filter((item) => item.rag.label === 'AMBER');
-  if (redTeams.length) risks.push(`Immediate delivery attention is required for ${redTeams.map((item) => item.board.name).join(', ')}.`);
+  if (redTeams.length) risks.push(`Immediate delivery attention is required for ${redTeams.map((item) => `${item.board.name} (${item.rag.reason})`).join('; ')}.`);
   if (amberTeams.length) risks.push(`${amberTeams.map((item) => item.board.name).join(', ')} ${amberTeams.length === 1 ? 'is' : 'are'} Amber and should be monitored against the configured thresholds.`);
   if (view.overdue > 0) risks.push(`${view.overdue} overdue open item${view.overdue === 1 ? '' : 's'} exist across the included teams.`);
-  if (view.unresolvedDefects > 0) risks.push(`${view.unresolvedDefects} unresolved defect${view.unresolvedDefects === 1 ? '' : 's'} remain across current sprint scope.`);
-  if (view.blocked > 0) risks.push(`${view.blocked} open item${view.blocked === 1 ? '' : 's'} are in blocked / impediment-like statuses.`);
+  if (view.unresolvedDefects > 0) risks.push(`${view.unresolvedDefects} unresolved defect${view.unresolvedDefects === 1 ? '' : 's'} remain across current reporting-sprint scope.`);
+  if (view.blocked > 0) risks.push(`${view.blocked} open item${view.blocked === 1 ? ' is' : 's are'} in blocked / impediment-like statuses.`);
+  if (view.scopeIncreasedTeams > 0) risks.push(`${view.scopeIncreasedTeams} team${view.scopeIncreasedTeams === 1 ? ' has' : 's have'} increased scope since the sprint-start baseline.`);
+  if (view.forecastAttentionTeams > 0) risks.push(`${view.forecastAttentionTeams} team${view.forecastAttentionTeams === 1 ? ' does' : 's do'} not yet meet the configured Remaining Estimate coverage needed for a non-provisional effort forecast.`);
+  if (view.unassignedOpen > 0) risks.push(`${view.unassignedOpen} open work item${view.unassignedOpen === 1 ? ' is' : 's are'} currently unassigned across the included teams.`);
   if (view.cadenceMismatch) risks.push('Sprint numbering/cadence is materially different across boards, so like-for-like period comparison needs care.');
+  if (view.overdueVersions.length > 0) risks.push(`${view.overdueVersions.length} unreleased Jira version${view.overdueVersions.length === 1 ? ' is' : 's are'} past the recorded release date.`);
 
-  if (redTeams.length) actions.push(`Confirm a recovery owner and dated action plan for ${redTeams.map((item) => item.board.name).join(', ')}.`);
-  if (view.overdue > 0) actions.push('Review overdue ownership and recovery dates, prioritising the teams with the largest overdue backlog.');
-  if (view.scopeIncreasedTeams > 0) actions.push('Validate mid-sprint scope additions with Product Owners and confirm whether delivery expectations need to be re-baselined.');
-  const provisionalTeams = view.teams.filter((item) => item.report?.metrics?.effort?.forecastProvisional);
-  if (provisionalTeams.length) actions.push(`Improve Remaining Estimate coverage for ${provisionalTeams.map((item) => item.board.name).join(', ')} before relying on project effort forecasts.`);
+  if (redTeams.length) actions.push(`Recovery ownership: confirm a named owner and dated recovery plan for ${redTeams.map((item) => item.board.name).join(', ')}.`);
+  if (view.unresolvedDefects > 0) actions.push('Defect decision: review severity, ownership and release impact for the unresolved defects before the next management checkpoint.');
+  if (view.overdue > 0) actions.push('Overdue recovery: confirm owners and recovery dates for overdue work, prioritising the teams with the largest overdue backlog.');
+  if (view.blocked > 0) actions.push('Dependency escalation: review blocked / impeded items and escalate dependencies that cannot be cleared within the team.');
+  if (view.scopeIncreasedTeams > 0) actions.push('Scope control: validate mid-sprint additions with Product Owners and confirm whether delivery expectations need to be re-baselined.');
+  if (view.forecastAttentionTeams > 0) actions.push('Forecast confidence: improve Remaining Estimate coverage before relying on project effort forecasts for management commitments.');
+  if (view.unassignedOpen > 0) actions.push('Ownership check: assign accountable owners to currently unassigned open work.');
+  if (view.overdueVersions.length > 0) actions.push('Release decision: review Jira versions whose target date has passed and either re-plan or close the milestone explicitly.');
   if (!actions.length) actions.push('Continue current delivery controls and monitor cross-team exceptions at the next management checkpoint.');
 
-  const unreleased = view.versions.filter((version) => !version.released);
-  if (unreleased.length) {
-    const nearest = unreleased[0];
+  if (view.unreleasedVersions.length) {
+    const nearest = view.unreleasedVersions[0];
     outlook.push(`${nearest.name}${nearest.releaseDate ? ` is targeted for ${formatDate(nearest.releaseDate)}` : ' is the next unreleased Jira version with no release date recorded'}.`);
-    const overdueVersions = unreleased.filter((version) => version.overdue);
-    if (overdueVersions.length) outlook.push(`${overdueVersions.length} unreleased version${overdueVersions.length === 1 ? ' is' : 's are'} past the Jira release date.`);
+    if (view.overdueVersions.length) outlook.push(`${view.overdueVersions.length} unreleased version${view.overdueVersions.length === 1 ? ' is' : 's are'} currently past the Jira release date.`);
+  } else {
+    outlook.push('No unreleased Jira version is currently available for milestone outlook.');
   }
+  if (view.openEpics.length) outlook.push(`${view.openEpics.length} open Epic${view.openEpics.length === 1 ? ' remains' : 's remain'} in the current project portfolio context.`);
 
   return { summary, risks, actions, outlook, view };
 }
@@ -5593,9 +5628,9 @@ function buildProjectExecutiveCommentarySnapshot(projectReport, settings = DEFAU
       forecast: {
         label: 'Open Work',
         value: formatNumber(view.open),
-        detail: 'across current reporting sprints',
-        meta: `${formatNumber(view.overdue)} overdue · ${formatNumber(view.unresolvedDefects)} unresolved defects`,
-        provisional: false,
+        detail: `across ${formatNumber(view.teams.length)} current reporting team${view.teams.length === 1 ? '' : 's'}`,
+        meta: `${formatNumber(view.overdue)} overdue · ${formatNumber(view.unresolvedDefects)} defects · ${formatNumber(view.blocked)} blocked`,
+        provisional: view.forecastAttentionTeams > 0,
       },
       glance: [
         {
@@ -5621,6 +5656,20 @@ function buildProjectExecutiveCommentarySnapshot(projectReport, settings = DEFAU
           value: formatNumber(view.blocked),
           meta: view.blocked ? 'Open blocked / waiting work' : 'No blocked work',
           tone: view.blocked ? 'negative' : 'positive',
+        },
+        {
+          label: 'Scope Growth',
+          value: formatNumber(view.scopeIncreasedTeams),
+          meta: view.scopeIncreasedTeams ? 'Teams above sprint-start item baseline' : 'No measured team scope growth',
+          tone: view.scopeIncreasedTeams ? 'warning' : 'positive',
+        },
+        {
+          label: 'Forecast Ready',
+          value: `${formatNumber(view.forecastReadyTeams)}/${formatNumber(view.teams.length)}`,
+          meta: view.forecastAttentionTeams
+            ? `${formatNumber(view.forecastAttentionTeams)} team${view.forecastAttentionTeams === 1 ? '' : 's'} need estimate coverage`
+            : 'All included teams have non-provisional effort forecasts',
+          tone: view.forecastAttentionTeams ? 'warning' : 'positive',
         },
       ],
     },
@@ -6467,6 +6516,149 @@ function ProjectWorkloadBars({ workload }) {
     </div>
   );
 }
+
+function ProjectRagDonut({ ragCounts }) {
+  const entries = [
+    { label: 'Green', count: Number(ragCounts?.GREEN ?? 0), color: '#22a06b' },
+    { label: 'Amber', count: Number(ragCounts?.AMBER ?? 0), color: '#e2b203' },
+    { label: 'Red', count: Number(ragCounts?.RED ?? 0), color: '#c9372c' },
+  ];
+  const total = entries.reduce((sum, item) => sum + item.count, 0);
+  let cursor = 0;
+  const segments = entries.map((entry) => {
+    const percentage = total > 0 ? (entry.count / total) * 100 : 0;
+    const start = cursor;
+    cursor += percentage;
+    return { ...entry, start, end: cursor };
+  });
+  const gradient = total > 0
+    ? `conic-gradient(${segments.filter((segment) => segment.count > 0).map((segment) => `${segment.color} ${segment.start}% ${segment.end}%`).join(', ')})`
+    : '#dcdfe4';
+
+  return (
+    <div className="status-donut-layout project-rag-donut-layout">
+      <div className="status-donut project-rag-donut" style={{ background: gradient }} role="img" aria-label="Team RAG distribution">
+        <div className="status-donut-centre"><strong>{formatNumber(total)}</strong><span>teams</span></div>
+      </div>
+      <div className="status-donut-legend">
+        {segments.map((segment) => (
+          <div className="donut-legend-row" key={segment.label}>
+            <span className="donut-dot" style={{ background: segment.color }} />
+            <span>{segment.label}</span>
+            <strong>{formatNumber(segment.count)}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProjectTeamCompletionBars({ teams }) {
+  const rows = (teams ?? []).slice(0, 10);
+  if (!rows.length) return <div className="empty-inline">No team completion data is available.</div>;
+  return (
+    <div className="project-chart-bars">
+      {rows.map((team) => {
+        const completion = Math.max(0, Math.min(100, Number(team.completion ?? 0)));
+        return (
+          <div className="project-chart-row" key={team.board?.id ?? team.board?.name}>
+            <span className="project-chart-label" title={team.board?.name}>{team.board?.name || 'Team'}</span>
+            <span className="project-chart-track">
+              <span className={`project-chart-fill project-chart-fill-${String(team.rag?.label ?? 'GREEN').toLowerCase()}`} style={{ width: `${completion}%` }} />
+            </span>
+            <strong>{formatNumber(completion)}%</strong>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProjectTeamExceptionBars({ teams }) {
+  const rows = (teams ?? []).slice(0, 10).map((team) => ({
+    team,
+    exceptions: Number(team.overdue ?? 0) + Number(team.unresolvedDefects ?? 0) + Number(team.blocked ?? 0),
+  }));
+  const maxExceptions = Math.max(1, ...rows.map((row) => row.exceptions));
+  if (!rows.length) return <div className="empty-inline">No team exception data is available.</div>;
+
+  return (
+    <div className="project-exception-bars">
+      {rows.map(({ team, exceptions }) => (
+        <div className="project-exception-bar-row" key={team.board?.id ?? team.board?.name}>
+          <div className="project-exception-bar-heading">
+            <strong>{team.board?.name || 'Team'}</strong>
+            <span>{formatNumber(team.report?.metrics?.open ?? 0)} open</span>
+          </div>
+          <div className="project-exception-bar-body">
+            <span className="project-exception-track">
+              <span
+                className={`project-exception-fill ${Number(team.unresolvedDefects ?? 0) || Number(team.blocked ?? 0) ? 'project-exception-fill-danger' : exceptions ? 'project-exception-fill-warning' : 'project-exception-fill-good'}`}
+                style={{ width: `${exceptions ? Math.max(4, (exceptions / maxExceptions) * 100) : 0}%` }}
+              />
+            </span>
+            <strong>{formatNumber(exceptions)}</strong>
+          </div>
+          <div className="project-exception-meta">
+            <span>{formatNumber(team.overdue)} overdue</span>
+            <span>{formatNumber(team.unresolvedDefects)} defects</span>
+            <span>{formatNumber(team.blocked)} blocked</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProjectScopeChangeBars({ teams }) {
+  const measured = (teams ?? []).filter((team) => team.hasScopeBaseline).slice(0, 10);
+  const unavailable = (teams ?? []).filter((team) => !team.hasScopeBaseline).length;
+  const maxAbs = Math.max(1, ...measured.map((team) => Math.abs(Number(team.scopeDeltaPercentage ?? 0))));
+
+  return (
+    <div className="project-scope-chart">
+      {measured.length ? measured.map((team) => {
+        const delta = Number(team.scopeDeltaPercentage ?? 0);
+        const width = Math.min(50, (Math.abs(delta) / maxAbs) * 50);
+        return (
+          <div className="project-scope-row" key={team.board?.id ?? team.board?.name}>
+            <span className="project-chart-label" title={team.board?.name}>{team.board?.name || 'Team'}</span>
+            <span className="project-scope-track">
+              <span className="project-scope-midline" />
+              {delta < 0 ? <span className="project-scope-fill project-scope-fill-negative" style={{ width: `${width}%` }} /> : null}
+              {delta > 0 ? <span className="project-scope-fill project-scope-fill-positive" style={{ width: `${width}%` }} /> : null}
+              {delta === 0 ? <span className="project-scope-zero" /> : null}
+            </span>
+            <strong className={delta > 0 ? 'project-scope-value-positive' : delta < 0 ? 'project-scope-value-negative' : ''}>{delta > 0 ? '+' : ''}{formatNumber(delta)}%</strong>
+          </div>
+        );
+      }) : <div className="empty-inline">No reliable sprint-start scope baseline is available.</div>}
+      {unavailable ? <small className="project-chart-footnote">{formatNumber(unavailable)} team{unavailable === 1 ? '' : 's'} omitted because a reliable sprint-start item baseline is unavailable.</small> : null}
+    </div>
+  );
+}
+
+function ProjectDistributionBars({ counts, emptyLabel = 'No distribution data is available.' }) {
+  const rows = Object.entries(counts ?? {})
+    .map(([label, count]) => ({ label, count: Number(count ?? 0) }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+  const max = Math.max(1, ...rows.map((row) => row.count));
+  if (!rows.length) return <div className="empty-inline">{emptyLabel}</div>;
+
+  return (
+    <div className="project-distribution-bars">
+      {rows.map((row) => (
+        <div className="project-chart-row" key={row.label}>
+          <span className="project-chart-label" title={row.label}>{row.label}</span>
+          <span className="project-chart-track"><span className="project-chart-fill project-chart-fill-blue" style={{ width: `${(row.count / max) * 100}%` }} /></span>
+          <strong>{formatNumber(row.count)}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function SprintProgressStrip({
   report,
@@ -13080,9 +13272,25 @@ ${answer.text}`,
                 {reportingSettings.kpiProfile?.native?.completion !== false ? <MetricCard label="Mean Team Completion" value={projectView.meanCompletion} formatter={(value) => `${formatNumber(value)}%`} tone={projectView.rag.label === 'RED' ? 'negative' : projectView.rag.label === 'AMBER' ? 'warning' : 'positive'} helper="Simple mean across included teams" calculationKey="projectMeanCompletion" calculationContext={{ projectView, settings: reportingSettings }} /> : null}
                 <MetricCard label="Teams on Track" value={projectView.teamsOnTrack} helper={`${projectView.teamsOnTrack} of ${projectView.teams.length} Green`} tone={projectView.teamsOnTrack === projectView.teams.length ? 'positive' : 'neutral'} calculationKey="projectTeamsOnTrack" calculationContext={{ projectView, settings: reportingSettings }} />
                 <MetricCard label="Teams at Risk" value={projectView.teamsAtRisk} helper={`${projectView.rag.counts.RED} Red · ${projectView.rag.counts.AMBER} Amber`} tone={projectView.rag.counts.RED ? 'negative' : projectView.teamsAtRisk ? 'warning' : 'positive'} calculationKey="projectTeamsAtRisk" calculationContext={{ projectView, settings: reportingSettings }} />
+                <MetricCard label="Open Work" value={projectView.open} helper={`${projectView.totalItems} Jira items in reporting scope`} tone={projectView.open ? 'neutral' : 'positive'} />
                 {reportingSettings.kpiProfile?.native?.overdue !== false ? <MetricCard label="Overdue Work" value={projectView.overdue} helper="Open items across included teams" tone={projectView.overdue ? 'warning' : 'positive'} calculationKey="projectOverdue" calculationContext={{ projectView, settings: reportingSettings }} /> : null}
                 {reportingSettings.kpiProfile?.native?.defects !== false ? <MetricCard label="Unresolved Defects" value={projectView.unresolvedDefects} helper="Current reporting-sprint scope" tone={projectView.unresolvedDefects ? 'negative' : 'positive'} calculationKey="projectDefects" calculationContext={{ projectView, settings: reportingSettings }} /> : null}
                 <MetricCard label="Blocked / Impeded" value={projectView.blocked} helper="Open blocked / waiting statuses" tone={projectView.blocked ? 'negative' : 'positive'} calculationKey="projectBlocked" calculationContext={{ projectView, settings: reportingSettings }} />
+                <MetricCard label="Scope Growth Teams" value={projectView.scopeIncreasedTeams} helper={projectView.scopeBaselineUnavailableTeams ? `${projectView.scopeBaselineUnavailableTeams} baseline unavailable` : 'Compared with sprint-start item scope'} tone={projectView.scopeIncreasedTeams ? 'warning' : 'positive'} calculationKey="projectScopeGrowth" calculationContext={{ projectView, settings: reportingSettings }} />
+                <MetricCard label="Forecast-Ready Teams" value={projectView.forecastReadyTeams} helper={`${projectView.forecastReadyTeams} of ${projectView.teams.length} non-provisional`} tone={projectView.forecastAttentionTeams ? 'warning' : 'positive'} />
+                <MetricCard label="Open Epics" value={projectView.openEpics.length} helper={projectView.epics.length ? `${projectView.epics.length} recent epics in Jira context` : 'No Epic data returned'} tone={projectView.openEpics.length ? 'neutral' : 'positive'} />
+              </div>
+              <div className="project-executive-visual-grid">
+                <div className="project-subcard project-chart-card">
+                  <h4>Team Health Distribution</h4>
+                  <p className="project-chart-description">Green / Amber / Red teams using the configured StatusDeck project thresholds.</p>
+                  <ProjectRagDonut ragCounts={projectView.rag.counts} />
+                </div>
+                <div className="project-subcard project-chart-card">
+                  <h4>Completion by Team</h4>
+                  <p className="project-chart-description">Latest active/closed reporting sprint for each included Scrum board.</p>
+                  <ProjectTeamCompletionBars teams={projectView.teams} />
+                </div>
               </div>
               {projectView.cadenceMismatch ? <div className="warning-banner project-inline-warning">Sprint cadence differs materially across boards. Cross-team comparisons should be read as exception indicators rather than a single like-for-like sprint period.</div> : null}
             </section>
@@ -13150,19 +13358,36 @@ ${answer.text}`,
                   </article>
                 ))}
               </div>
+              <div className="project-two-column project-delivery-visuals">
+                <div className="project-subcard project-chart-card">
+                  <h4>Delivery Exceptions by Team</h4>
+                  <p className="project-chart-description">Exception bars combine overdue, unresolved-defect and blocked signals; open work is shown separately and is not double-counted into the bar.</p>
+                  <ProjectTeamExceptionBars teams={projectView.teams} />
+                </div>
+                <div className="project-subcard project-chart-card">
+                  <h4>Scope Change by Team</h4>
+                  <p className="project-chart-description">Item-scope movement against each team's reliable sprint-start baseline. Positive values indicate scope growth.</p>
+                  <ProjectScopeChangeBars teams={projectView.teams} />
+                </div>
+              </div>
             </section>
 
             <section className="dashboard-card content-card project-report-section" style={projectSectionStyle('projectOperational')}>
               <button type="button" className="section-drag-handle no-export" {...projectSectionHandleProps('projectOperational')}>⠿</button>
               <div className="dashboard-card-heading"><div><p className="eyebrow">Operational Flow & Capacity</p><h3>Pipeline Health and Workload</h3><p>Uses current Jira status and assignee data. Cycle/lead-time calculations are intentionally not fabricated without transition-history analysis.</p></div></div>
               <div className="project-two-column project-operational-visuals">
-                <div className="project-subcard dashboard-card-status">
+                <div className="project-subcard dashboard-card-status project-chart-card">
                   <h4 className="heading-with-calculation-help"><span>Status Distribution</span><CalculationButton calculationKey="projectStatusDistribution" context={{ projectView }} /></h4>
                   <StatusDonut statusCounts={projectView.statusCounts} total={Object.values(projectView.statusCounts ?? {}).reduce((sum, count) => sum + Number(count ?? 0), 0)} />
                 </div>
-                <div className="project-subcard">
+                <div className="project-subcard project-chart-card">
                   <h4 className="heading-with-calculation-help"><span>Highest Open Workload</span><CalculationButton calculationKey="projectWorkload" context={{ projectView }} /></h4>
                   <ProjectWorkloadBars workload={projectView.workload} />
+                </div>
+                <div className="project-subcard project-chart-card">
+                  <h4>Work Type Distribution</h4>
+                  <p className="project-chart-description">Current reporting-sprint work items grouped by Jira issue type.</p>
+                  <ProjectDistributionBars counts={projectView.typeCounts} emptyLabel="No Jira issue-type distribution is available." />
                 </div>
               </div>
             </section>
